@@ -129,6 +129,18 @@ body{font-family:var(--f);color:var(--ink);font-weight:600;min-height:100vh;
 .mem-cell.flash-ok{background:var(--ok-bg);border-color:var(--ok-bd)}
 .mem-cell.flash-ng{background:var(--ng-bg);border-color:var(--ng-bd)}
 
+/* ===== Shared: whole-RAM map (stack/heap share one memory) ===== */
+.ram-map{background:linear-gradient(180deg,#f3eefb,#ece2f8);border:1px solid #d6c7f0;border-radius:10px;padding:12px 14px;margin-bottom:16px}
+.ram-map-label{font-size:12px;font-weight:900;color:#4a3a78;margin-bottom:8px}
+.ram-map-bar{display:flex;height:42px;border-radius:8px;overflow:hidden;border:1.5px solid #b7a9d9}
+.ram-map-zone{display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:900;color:#fff;letter-spacing:.02em}
+.ram-map-zone.heap{background:linear-gradient(90deg,#1f746f,#33a7a0);flex:1.3}
+.ram-map-zone.free{background:repeating-linear-gradient(45deg,#efe9d8,#efe9d8 6px,#e4ddc8 6px,#e4ddc8 12px);color:#8a7d68;flex:0.7}
+.ram-map-zone.stack{background:linear-gradient(90deg,#e0824a,#a85a26);flex:1.3}
+.ram-map-zone.active{outline:3px solid #5b45b8;outline-offset:-3px}
+.ram-map-zone.dim{opacity:.55}
+.ram-map-note{font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.7}
+
 /* ===== Stage2: Stack ===== */
 .stack-stage{display:grid;grid-template-columns:200px minmax(0,1fr);gap:20px}
 @media(max-width:600px){.stack-stage{grid-template-columns:1fr}}
@@ -235,6 +247,7 @@ const STAGES = [
       {who:'hakase', text:'大量の「箱」が一列に並んでいて、箱ひとつひとつに背番号がついておる。この背番号を「アドレス（番地）」と呼ぶんじゃよ。'},
       {who:'mirai', text:'箱の中には何が入ってるんですか？'},
       {who:'hakase', text:'1つの箱には1バイト分のデータが入る。プログラムはこの番地を指定して読み書きするんじゃ。まずは実際に、指定された番地の箱を見つけてみよう！'},
+      {who:'hakase', text:'この先の章で「スタック」や「ヒープ」という言葉が出てくるが、それらは別の記憶装置ではない。すべて今見たこの1本のRAMの中の、使い方の違う「区画」にすぎないんじゃよ。'},
     ],
     build: buildRam,
   },
@@ -246,6 +259,7 @@ const STAGES = [
       {who:'hakase', text:'これは後入れ先出し、英語でLIFO(Last In First Out)と呼ばれる仕組みでな。一番最後に積んだものが、一番先に取り除かれる。'},
       {who:'mirai', text:'お皿を積み重ねるのと同じですね。上から順番にしか取れない……'},
       {who:'hakase', text:'その通り。関数が終わって戻るときは、積んだ順とは逆の順番で片付けられていく。実際にやってみよう。'},
+      {who:'hakase', text:'注意してほしいのは、このスタックも第1章で見たRAMの箱の続きだということじゃ。次のヒープの章も、実は同じRAMの反対側を使っておる。'},
     ],
     build: buildStack,
   },
@@ -254,7 +268,8 @@ const STAGES = [
     missionText:'ヒープにデータを確保・解放して、断片化がなぜ起きるのかを確かめよう。',
     dialogue:[
       {who:'hakase', text:'一方でヒープは、スタックのように順番に積むのではなく、空いている場所を自由に選んで確保する領域じゃ。'},
-      {who:'mirai', text:'自由なんですね。それは便利そう。'},
+      {who:'mirai', text:'スタックとは別のメモリなんですか？'},
+      {who:'hakase', text:'いや、別物ではない。同じ1本のRAMの中で、スタックは片方の端から、ヒープはもう片方の端から向き合って使われておるんじゃ。下の全体マップを見てみよう。'},
       {who:'hakase', text:'便利な反面、確保・解放を繰り返すと、あちこちに「隙間」ができてしまう。これを断片化と呼ぶんじゃ。実際に体験してみよう。'},
     ],
     build: buildHeap,
@@ -314,6 +329,21 @@ function shuffle(arr){
   const a = arr.slice();
   for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
   return a;
+}
+
+/* ---------- shared: whole-RAM map (used by stack & heap stages) ---------- */
+function ramMapHTML(active){
+  return `
+    <div class="ram-map">
+      <div class="ram-map-label">🗺️ これは同じ1本のRAM（メモリ）です。ヒープとスタックは両端から向き合って使われます。</div>
+      <div class="ram-map-bar">
+        <div class="ram-map-zone heap ${active==='heap' ? 'active' : 'dim'}">ヒープ →</div>
+        <div class="ram-map-zone free">空き</div>
+        <div class="ram-map-zone stack ${active==='stack' ? 'active' : 'dim'}">← スタック</div>
+      </div>
+      <div class="ram-map-note">枠で強調されている側が、今この章で操作している領域じゃ。低い番地からヒープが伸び、高い番地からスタックが伸びて、真ん中の「空き」がその分だけ狭くなっていく。</div>
+    </div>
+  `;
 }
 
 /* ---------- sidebar / header ---------- */
@@ -512,6 +542,7 @@ function buildStack(root, ctx){
   const stackArr = [];
 
   root.innerHTML = `
+    ${ramMapHTML('stack')}
     <div class="stack-stage">
       <div class="stack-visual">
         <div class="stack-col" id="stack-col"></div>
@@ -622,6 +653,7 @@ function buildHeap(root, ctx){
   let stepIndex = 0;
 
   root.innerHTML = `
+    ${ramMapHTML('heap')}
     <p class="step-desc" id="step-desc"></p>
     <div class="heap-stage" id="heap-stage">
       <div class="heap-row" id="heap-row"></div>
