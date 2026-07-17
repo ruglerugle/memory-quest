@@ -746,7 +746,11 @@ function buildPointer(root, ctx){
   const matched = {};
 
   root.innerHTML = `
-    <p class="ptr-hint">ヒント: ptrA は 0x108 番地、ptrB は 0x100 番地のデータを指しています。ポインタを選んでから、対応するヒープのデータをクリックしよう。</p>
+    <div class="mission-box" style="margin-bottom:14px">
+      <div class="mission-label">📋 お題</div>
+      <div class="mission-text">ptrA は 0x108 番地、ptrB は 0x100 番地のデータを指しています。</div>
+    </div>
+    <p class="ptr-hint">操作方法: ポインタを選んでから、対応するヒープのデータをクリックしよう。</p>
     <div class="ptr-board">
       <div>
         <h4>スタック（ポインタ変数）</h4>
