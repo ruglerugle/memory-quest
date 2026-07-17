@@ -666,6 +666,10 @@ function buildHeap(root, ctx){
     {kind:'alloc', label:'C（サイズ6）を確保してみよう', size:6, tag:'C', color:'#7a63d6', btn:'C を確保する'},
     {kind:'free',  label:'B を解放してみよう（真ん中に隙間ができる）', tag:'B', btn:'B を解放する'},
     {kind:'allocFail', label:'では D（サイズ4）を確保してみよう。空き容量はあるはずだが……？', size:4, tag:'D', color:'#c96bb0', btn:'D を確保してみる'},
+    {kind:'dialogue', lines:[
+      {who:'mirai', text:'空き領域とヒープ領域の空きを足せば4バイト確保できませんか？'},
+      {who:'hakase', text:'いい質問じゃ。じゃが、それはできん。理由は2つある。ひとつは、外側の「空き」はヒープの区画の外にあるから、ヒープがそこを使うことはできん。もうひとつは、ヒープの中の空き（3マス＋3マス）も離れた場所にあって、ひとつながりになっていない。メモリの確保には「合計のバイト数」ではなく「連続した1つの塊」が必要なんじゃよ。'},
+    ]},
     {kind:'quiz', label:'なぜ D（サイズ4）を確保できなかったのでしょう？',
       options:[
         {t:'空き容量の合計が4バイトより少なかったから', ok:false},
@@ -726,10 +730,16 @@ function buildHeap(root, ctx){
 
   function showStep(){
     const step = steps[stepIndex];
-    qs('#step-desc', root).textContent = step.label;
+    qs('#step-desc', root).textContent = step.label || '';
     qs('#heap-msg', root).textContent = '';
     qs('#heap-msg', root).className = 'heap-msg';
     const actionEl = qs('#step-action', root);
+
+    if(step.kind === 'dialogue'){
+      actionEl.innerHTML = `<div class="dialogue-scene">${renderDialogue(step.lines)}</div><button class="btn btn-primary" id="btn-do">つぎへ</button>`;
+      qs('#btn-do', actionEl).addEventListener('click', advance);
+      return;
+    }
 
     if(step.kind === 'quiz'){
       const opts = shuffle(step.options);
