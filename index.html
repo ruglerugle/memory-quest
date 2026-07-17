@@ -250,7 +250,8 @@ body{font-family:var(--f);color:var(--ink);font-weight:600;min-height:100vh;
 .layout-zone.heap{background:linear-gradient(90deg,#1f746f,#33a7a0);flex:1.6}
 .layout-zone.gap{background:repeating-linear-gradient(45deg,#efe9d8,#efe9d8 6px,#e4ddc8 6px,#e4ddc8 12px);color:#8a7d68;text-shadow:none;flex:0.8}
 .layout-zone.stack{background:linear-gradient(90deg,#e0824a,#a85a26);flex:1.6}
-.layout-addr-note{font-size:11px;color:var(--muted);margin-bottom:16px;text-align:center}
+.layout-addr-note{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--muted);
+  margin-bottom:16px;border-top:1px dashed #c9bda0;padding-top:5px}
 .layout-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
 .layout-card{background:#fff;border:1.5px solid var(--line);border-radius:10px;padding:11px}
 .layout-card-title{font-size:13px;font-weight:850;color:#241a3d;margin-bottom:8px;line-height:1.5}
@@ -1529,7 +1530,7 @@ function buildLayout(root, ctx){
       <div class="layout-zone gap">空き</div>
       <div class="layout-zone stack">← スタック</div>
     </div>
-    <div class="layout-addr-note">低い番地 ─────────────────────────────────→ 高い番地</div>
+    <div class="layout-addr-note"><span>← 低い番地</span><span>高い番地 →</span></div>
     <div class="layout-grid" id="layout-grid"></div>
     <div id="layout-action" style="margin-top:12px"></div>
   `;
