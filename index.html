@@ -272,6 +272,16 @@ body{font-family:var(--f);color:var(--ink);font-weight:600;min-height:100vh;
   font-weight:800;color:#1f5c37;margin-top:10px}
 .bug-cell-corrupt{animation:cacheMiss .5s}
 
+/* ===== Stage11: Virtual memory ===== */
+.vmem-proc{background:#fff;border:1.5px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px}
+.vmem-proc h4{font-size:12.5px;font-weight:900;margin-bottom:8px}
+.vmem-proc.proc-a h4{color:#5b45b8}
+.vmem-proc.proc-b h4{color:#a85a26}
+.vmem-pagetable{font-family:var(--m);font-size:11.5px;color:var(--muted);background:#f6f3ea;border-radius:6px;
+  padding:6px 9px;margin-top:8px;line-height:1.6}
+.vmem-arrow{text-align:center;font-size:18px;color:var(--muted);margin:6px 0}
+.vmem-arrow.active{color:var(--ptr);animation:regFlash .6s}
+
 /* Ending */
 .ending{text-align:center;padding:30px 10px}
 .ending h2{font-size:24px;color:#241a3d;margin-bottom:12px}
@@ -411,11 +421,23 @@ const STAGES = [
     key:'bugs', title:'典型的なメモリバグ', sub:'ダングリングポインタ・オーバーフロー',
     missionText:'ダングリングポインタ・バッファオーバーフロー・スタックオーバーフローという3つの典型的なバグを体験しよう。',
     dialogue:[
-      {who:'hakase', text:'最後に、これまで学んだ知識を使って、メモリにまつわる典型的なバグを3つ見ていこう。'},
+      {who:'hakase', text:'ここでは、これまで学んだ知識を使って、メモリにまつわる典型的なバグを3つ見ていこう。'},
       {who:'mirai', text:'ポインタやヒープ、スタックの話が、実際のバグにつながるんですね。'},
       {who:'hakase', text:'その通り。仕組みを知っていれば、なぜそのバグが起きるのかが分かるようになる。順番に体験してみよう。'},
     ],
     build: buildBugs,
+  },
+  {
+    key:'vmem', title:'仮想メモリ', sub:'アドレス変換とプロセスの隔離',
+    missionText:'2つのプログラムが同じ仮想アドレスを使っても、物理RAM上では衝突しないことを確かめよう。',
+    dialogue:[
+      {who:'hakase', text:'最後に、とても大事な仕組み「仮想メモリ」の話をしよう。実は第1章で見たRAMの番地は、多くの場合そのまま物理的なRAMの番地ではないんじゃ。'},
+      {who:'mirai', text:'え、あれは本物の番地じゃなかったんですか？'},
+      {who:'hakase', text:'そうじゃ。プログラムが見ているのは「仮想アドレス」という、プログラムごとに用意された架空の番地じゃ。CPUの中のMMU（メモリ管理ユニット）が、ページテーブルという対応表を使って、それを本物の物理アドレスに変換しておる。'},
+      {who:'mirai', text:'じゃあ、違うプログラム同士が同じ番地を使ったら、ぶつかってしまいませんか？'},
+      {who:'hakase', text:'ぶつからんのじゃ。プログラムごとに別々のページテーブルを持っているから、同じ仮想アドレスでも変換先の物理アドレスは別々になる。これが、プログラム同士のメモリを守る「隔離」の仕組みじゃ。実際に確かめてみよう。'},
+    ],
+    build: buildVMem,
   },
 ];
 
@@ -576,7 +598,7 @@ function showEnding(){
   main.innerHTML = `
     <div class="ending">
       <h2>🎉 メモリークエスト・クリア！</h2>
-      <p>RAM・スタック・ヒープ・ポインタ・メモリリーク・ガベージコレクション・CPUとレジスタ・キャッシュ・メモリレイアウト・典型的なバグ。<br>王国の記憶管理士として、メモリの仕組みをひと通り体験できたね。</p>
+      <p>RAM・スタック・ヒープ・ポインタ・メモリリーク・ガベージコレクション・CPUとレジスタ・キャッシュ・メモリレイアウト・典型的なバグ・仮想メモリ。<br>王国の記憶管理士として、メモリの仕組みをひと通り体験できたね。</p>
       <div class="ending-list">
         ✅ RAM = 番地付きの箱の集まり<br>
         ✅ スタック = LIFOで積み上がる領域<br>
@@ -587,7 +609,8 @@ function showEnding(){
         ✅ CPU = レジスタに読み込み(LOAD)・演算し・書き戻す(STORE)<br>
         ✅ キャッシュ = よく使うデータを手元に置く高速な仕組み<br>
         ✅ メモリレイアウト = コード・静的データ・ヒープ・スタックの配置<br>
-        ✅ 典型的なバグ = ダングリングポインタ・オーバーフロー
+        ✅ 典型的なバグ = ダングリングポインタ・オーバーフロー<br>
+        ✅ 仮想メモリ = ページテーブルによるアドレス変換とプロセスの隔離
       </div>
       <button class="btn btn-primary" id="btn-replay">↺ はじめから遊びなおす</button>
     </div>
@@ -1794,6 +1817,146 @@ function buildBugs(root, ctx){
     showStep();
   }
 
+  showStep();
+}
+
+/* =====================================================================
+   Stage 11: Virtual memory ― address translation & process isolation
+   ===================================================================== */
+function buildVMem(root, ctx){
+  const PHYS_SIZE = 8;
+  const phys = Array(PHYS_SIZE).fill(null);
+  const virtA = Array(4).fill(null);
+  const virtB = Array(4).fill(null);
+  const pageTableA = addr => addr + 4; // virtual 0x00-0x03 -> physical 0x04-0x07
+  const pageTableB = addr => addr;     // virtual 0x00-0x03 -> physical 0x00-0x03
+
+  const steps = [
+    {kind:'info', label:'ProgramAとProgramBは、それぞれ自分専用の仮想アドレス0x00〜0x03を持っている。だが実際のRAM（物理アドレス）はひとつしかない。ページテーブルがどう対応づけるか見てみよう。', btn:'つぎへ'},
+    {kind:'write', prog:'A', addr:2, val:77, label:'Program A が仮想アドレス0x02に 77 を書き込む。MMUが物理アドレスに変換する様子を見てみよう。', btn:'Program A: 仮想0x02に 77 を書き込む'},
+    {kind:'quiz', label:'今の書き込みで、実際にRAM（物理メモリ）のどこに値が入ったでしょう？',
+      options:[
+        {t:'ページテーブルが指す物理アドレス0x06（仮想アドレスとは別の場所）', ok:true},
+        {t:'仮想アドレスと同じ物理アドレス0x02', ok:false},
+        {t:'RAMには何も書き込まれていない', ok:false},
+      ]},
+    {kind:'write', prog:'B', addr:2, val:33, label:'次はProgram Bが、同じ仮想アドレス0x02に 33 を書き込む。', btn:'Program B: 仮想0x02に 33 を書き込む'},
+    {kind:'quiz', label:'ProgramAとBは同じ仮想アドレス0x02を使ったのに、RAM上のデータは衝突しませんでした。なぜでしょう？',
+      options:[
+        {t:'それぞれが自分専用のページテーブルを持ち、別々の物理アドレスに変換されるから', ok:true},
+        {t:'たまたま同時に実行されなかったから', ok:false},
+        {t:'仮想アドレスは実際には使われていないから', ok:false},
+      ]},
+  ];
+  let stepIndex = 0;
+
+  root.innerHTML = `
+    <div class="vmem-proc proc-a">
+      <h4>Program A（仮想アドレス空間）</h4>
+      <div class="mem-grid" id="virt-a-grid" style="grid-template-columns:repeat(4,1fr)"></div>
+      <div class="vmem-pagetable">ページテーブルA: 仮想 0x00-0x03 → 物理 0x04-0x07</div>
+    </div>
+    <div class="vmem-proc proc-b">
+      <h4>Program B（仮想アドレス空間）</h4>
+      <div class="mem-grid" id="virt-b-grid" style="grid-template-columns:repeat(4,1fr)"></div>
+      <div class="vmem-pagetable">ページテーブルB: 仮想 0x00-0x03 → 物理 0x00-0x03</div>
+    </div>
+    <div class="vmem-arrow" id="vmem-arrow">↓ MMUが変換 ↓</div>
+    <div class="cpu-panel">
+      <h4>物理RAM（実際に1つしかない）</h4>
+      <div class="mem-grid" id="phys-grid"></div>
+    </div>
+    <p class="step-desc" id="step-desc" style="margin-top:12px"></p>
+    <div id="step-action"></div>
+  `;
+
+  function renderVirt(which){
+    const arr = which === 'A' ? virtA : virtB;
+    const grid = qs(which === 'A' ? '#virt-a-grid' : '#virt-b-grid', root);
+    grid.innerHTML = '';
+    arr.forEach((val, addr)=>{
+      const d = document.createElement('div');
+      d.className = 'mem-cell';
+      d.innerHTML = `<span class="mem-addr">仮想0x0${addr}</span><span class="mem-val">${val === null ? '—' : val}</span>`;
+      grid.appendChild(d);
+    });
+  }
+
+  function renderPhys(flashAddr, flashCls){
+    const grid = qs('#phys-grid', root);
+    grid.innerHTML = '';
+    phys.forEach((val, addr)=>{
+      const d = document.createElement('div');
+      d.className = 'mem-cell' + (addr === flashAddr ? ` ${flashCls}` : '');
+      d.innerHTML = `<span class="mem-addr">0x${addr.toString(16).toUpperCase().padStart(2,'0')}</span><span class="mem-val">${val === null ? '—' : val}</span>`;
+      grid.appendChild(d);
+    });
+  }
+
+  function doWrite(prog, addr, val){
+    const physAddr = prog === 'A' ? pageTableA(addr) : pageTableB(addr);
+    phys[physAddr] = val;
+    if(prog === 'A') virtA[addr] = val; else virtB[addr] = val;
+    renderVirt(prog);
+    renderPhys(physAddr, 'flash-ok');
+    const arrow = qs('#vmem-arrow', root);
+    arrow.textContent = `↓ Program${prog}: 仮想0x0${addr} → 物理0x${physAddr.toString(16).toUpperCase().padStart(2,'0')} ↓`;
+    arrow.classList.add('active');
+    setTimeout(()=> arrow.classList.remove('active'), 600);
+  }
+
+  function showStep(){
+    const step = steps[stepIndex];
+    qs('#step-desc', root).textContent = step.label || '';
+    const actionEl = qs('#step-action', root);
+
+    if(step.kind === 'quiz'){
+      const opts = shuffle(step.options);
+      actionEl.innerHTML = `<div class="choice-list">${opts.map(o=>`<button class="choice-btn" data-ok="${o.ok}">${o.t}</button>`).join('')}</div>`;
+      actionEl.querySelectorAll('.choice-btn').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          if(btn.dataset.ok === 'true'){
+            btn.classList.add('choice-ok');
+            setTimeout(advance, 500);
+          } else {
+            btn.classList.add('choice-ng');
+            setTimeout(()=>btn.classList.remove('choice-ng'), 400);
+          }
+        });
+      });
+      return;
+    }
+
+    actionEl.innerHTML = `<button class="btn btn-primary" id="btn-do">${step.btn}</button>`;
+
+    if(step.kind === 'info'){
+      qs('#btn-do', actionEl).addEventListener('click', advance);
+      return;
+    }
+
+    if(step.kind === 'write'){
+      qs('#btn-do', actionEl).addEventListener('click', ()=>{
+        doWrite(step.prog, step.addr, step.val);
+        advance();
+      });
+      return;
+    }
+  }
+
+  function advance(){
+    stepIndex++;
+    if(stepIndex >= steps.length){
+      qs('#step-desc', root).textContent = '🎉 同じ仮想アドレスでも、ページテーブルによって別々の物理アドレスに変換されることが確認できたね。これがプログラム同士を守る「隔離」の仕組みじゃ。';
+      qs('#step-action', root).innerHTML = '';
+      ctx.complete();
+      return;
+    }
+    showStep();
+  }
+
+  renderVirt('A');
+  renderVirt('B');
+  renderPhys();
   showStep();
 }
 
