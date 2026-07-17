@@ -142,7 +142,8 @@ body{font-family:var(--f);color:var(--ink);font-weight:600;min-height:100vh;
 .ram-map-zone.stack .ram-map-fill{left:auto;right:0;background:linear-gradient(270deg,#e0824a,#a85a26)}
 .ram-map-zone-label{position:relative;z-index:1;padding:0 6px;white-space:nowrap;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.55)}
 .ram-map-zone.active{outline:3px solid #5b45b8;outline-offset:-3px}
-.ram-map-zone.dim{opacity:.6}
+.ram-map-zone.dim{background-image:repeating-linear-gradient(45deg,rgba(0,0,0,.08) 0 7px,transparent 7px 14px)}
+.ram-map-zone-label.dim-label{color:#6b6156;text-shadow:none;font-size:10.5px}
 .ram-map-note{font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.7}
 
 /* ===== Stage2: Stack ===== */
@@ -342,21 +343,23 @@ const MAP_STACK_CAP = 6;
 function ramMapHTML({active, heapUsed = 0, heapCap = MAP_HEAP_CAP, stackUsed = 0, stackCap = MAP_STACK_CAP}){
   const heapPct = Math.min(100, Math.round(heapUsed / heapCap * 100));
   const stackPct = Math.min(100, Math.round(stackUsed / stackCap * 100));
+  const heapActive = active === 'heap';
+  const stackActive = active === 'stack';
+  const heapInner = heapActive
+    ? `<div class="ram-map-fill" style="width:${heapPct}%"></div><span class="ram-map-zone-label">ヒープ → ${heapUsed}/${heapCap}</span>`
+    : `<span class="ram-map-zone-label dim-label">🔒 ヒープ（対象外）</span>`;
+  const stackInner = stackActive
+    ? `<div class="ram-map-fill" style="width:${stackPct}%"></div><span class="ram-map-zone-label">← スタック ${stackUsed}/${stackCap}</span>`
+    : `<span class="ram-map-zone-label dim-label">🔒 スタック（対象外）</span>`;
   return `
     <div class="ram-map">
       <div class="ram-map-label">🗺️ これは同じ1本のRAM（メモリ）です。ヒープとスタックは両端から向き合って使われます。</div>
       <div class="ram-map-bar">
-        <div class="ram-map-zone heap ${active==='heap' ? 'active' : 'dim'}">
-          <div class="ram-map-fill" style="width:${heapPct}%"></div>
-          <span class="ram-map-zone-label">ヒープ → ${heapUsed}/${heapCap}</span>
-        </div>
+        <div class="ram-map-zone heap ${heapActive ? 'active' : 'dim'}">${heapInner}</div>
         <div class="ram-map-zone free"><span class="ram-map-zone-label">空き</span></div>
-        <div class="ram-map-zone stack ${active==='stack' ? 'active' : 'dim'}">
-          <div class="ram-map-fill" style="width:${stackPct}%"></div>
-          <span class="ram-map-zone-label">← スタック ${stackUsed}/${stackCap}</span>
-        </div>
+        <div class="ram-map-zone stack ${stackActive ? 'active' : 'dim'}">${stackInner}</div>
       </div>
-      <div class="ram-map-note">枠で強調されている側が、今この章で操作している領域じゃ。色のついた部分が実際に使用中のメモリで、push/popや確保/解放をするたびにここが実際に伸び縮みする。</div>
+      <div class="ram-map-note">枠で強調されている側が、今この章で実際に伸び縮みする領域じゃ。反対側の「🔒対象外」区画は、たとえ空いて見えても別の用途のために確保された場所で、ヒープとスタックが互いに奪い合うことはできない。</div>
     </div>
   `;
 }
@@ -684,6 +687,7 @@ function buildHeap(root, ctx){
         <span class="legend-chip"><span class="legend-swatch" style="background:#7a63d6"></span>C</span>
         <span class="legend-chip"><span class="legend-swatch" style="background:#c96bb0"></span>D</span>
       </div>
+      <p class="ptr-hint" style="margin-top:8px">※ このマス目16個が、ヒープに割り当てられた区画のすべてじゃ。上のマップでスタック側が空いて見えても、ヒープの確保はこの16マスの中でしかできない。</p>
     </div>
     <div id="step-action" style="margin-top:12px"></div>
   `;
@@ -735,7 +739,7 @@ function buildHeap(root, ctx){
           if(btn.dataset.ok === 'true'){
             btn.classList.add('choice-ok');
             setTimeout(()=>{
-              qs('#step-desc', root).textContent = '🎉 その通り！これが「断片化」じゃ。空きの合計だけでなく、連続した空きが必要なんじゃよ。';
+              qs('#step-desc', root).textContent = '🎉 その通り！これが「断片化」じゃ。空きの合計だけでなく、連続した空きが必要なんじゃよ。しかも、ヒープが使えるのはヒープ専用の区画だけ。スタック側に余白があっても借りることはできんのじゃ。';
               actionEl.innerHTML = '';
               ctx.complete();
             }, 500);
