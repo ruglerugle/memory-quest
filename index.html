@@ -225,6 +225,52 @@ body{font-family:var(--f);color:var(--ink);font-weight:600;min-height:100vh;
 .alu-box.active{transform:scale(1.04);box-shadow:0 0 0 5px rgba(201,139,31,.3)}
 .cpu-flow-note{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.6}
 
+/* ===== Stage8: Cache ===== */
+.cache-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.cache-line{flex:1;min-width:90px;background:#efe9d8;border:1.5px dashed #c9bda0;border-radius:8px;padding:9px;text-align:center}
+.cache-line.filled{background:linear-gradient(180deg,#e6d9fb,#d3bdf5);border:1.5px solid var(--ptr)}
+.cache-line-tag{font-family:var(--m);font-size:11px;color:#5b45b8;font-weight:900}
+.cache-line-val{font-family:var(--m);font-size:16px;font-weight:900;color:#3a2c5c;margin-top:3px}
+.cache-line.flash-hit{animation:cacheHit .6s}
+.cache-line.flash-miss{animation:cacheMiss .5s}
+@keyframes cacheHit{0%{box-shadow:0 0 0 0 rgba(47,158,92,.6)}100%{box-shadow:0 0 0 14px rgba(47,158,92,0)}}
+@keyframes cacheMiss{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.access-log{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.access-chip{font-family:var(--m);font-size:11px;font-weight:900;padding:4px 9px;border-radius:999px}
+.access-chip.hit{background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-bd)}
+.access-chip.miss{background:var(--ng-bg);color:var(--ng);border:1px solid var(--ng-bd)}
+.hit-rate{font-size:12px;font-weight:800;color:var(--muted);margin-top:8px}
+
+/* ===== Stage9: Memory layout ===== */
+.layout-map{display:flex;height:44px;border-radius:8px;overflow:hidden;border:1.5px solid #b7a9d9;margin-bottom:6px}
+.layout-zone{flex:1;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:900;color:#fff;
+  text-shadow:0 1px 3px rgba(0,0,0,.5);text-align:center;padding:0 4px}
+.layout-zone.code{background:linear-gradient(90deg,#5b45b8,#7a63d6)}
+.layout-zone.data{background:linear-gradient(90deg,#a85a26,#c98b1f)}
+.layout-zone.heap{background:linear-gradient(90deg,#1f746f,#33a7a0);flex:1.6}
+.layout-zone.gap{background:repeating-linear-gradient(45deg,#efe9d8,#efe9d8 6px,#e4ddc8 6px,#e4ddc8 12px);color:#8a7d68;text-shadow:none;flex:0.8}
+.layout-zone.stack{background:linear-gradient(90deg,#e0824a,#a85a26);flex:1.6}
+.layout-addr-note{font-size:11px;color:var(--muted);margin-bottom:16px;text-align:center}
+.layout-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.layout-card{background:#fff;border:1.5px solid var(--line);border-radius:10px;padding:11px}
+.layout-card-title{font-size:13px;font-weight:850;color:#241a3d;margin-bottom:8px;line-height:1.5}
+.layout-btns{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.layout-btn{border:1.5px solid #c9bda0;background:#fff;border-radius:7px;padding:6px 4px;font-size:11px;font-weight:850;cursor:pointer}
+.layout-btn.on{background:#e6f5ec;border-color:var(--ok-bd);color:var(--ok)}
+.layout-card.wrong{border-color:var(--ng-bd);background:var(--ng-bg)}
+.layout-card.right{border-color:var(--ok-bd)}
+.layout-hint{font-size:11px;color:var(--ng);margin-top:6px;font-weight:800}
+
+/* ===== Stage10: Memory bugs ===== */
+.bug-section{border-top:2px dashed var(--line);padding-top:16px;margin-top:16px}
+.bug-section:first-child{border-top:none;padding-top:0;margin-top:0}
+.bug-heading{font-size:14px;font-weight:900;color:#241a3d;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.bug-alert{background:var(--ng-bg);border:1.5px solid var(--ng-bd);border-radius:9px;padding:10px 12px;font-size:13px;
+  font-weight:800;color:#7a231f;margin-top:10px}
+.bug-ok{background:var(--ok-bg);border:1.5px solid var(--ok-bd);border-radius:9px;padding:10px 12px;font-size:13px;
+  font-weight:800;color:#1f5c37;margin-top:10px}
+.bug-cell-corrupt{animation:cacheMiss .5s}
+
 /* Ending */
 .ending{text-align:center;padding:30px 10px}
 .ending h2{font-size:24px;color:#241a3d;margin-bottom:12px}
@@ -328,13 +374,47 @@ const STAGES = [
     key:'cpu', title:'CPUとレジスタ', sub:'読み込み・演算・書き込み',
     missionText:'RAMの値をレジスタに読み込み(LOAD)、演算し(ADD)、結果をRAMに書き戻す(STORE)という流れを体験しよう。',
     dialogue:[
-      {who:'hakase', text:'ここまで、RAMの中にデータがどう置かれるかを見てきたのう。最後に、CPU自身がそのデータをどうやって読み書きしているのかを見てみよう。'},
+      {who:'hakase', text:'ここまで、RAMの中にデータがどう置かれるかを見てきたのう。ここからは、CPU自身がそのデータをどうやって読み書きしているのかを見てみよう。'},
       {who:'mirai', text:'CPUは、RAMの中身を直接計算したりはしないんですか？'},
       {who:'hakase', text:'できないんじゃ。CPUが計算に使えるのは、自分の中にある「レジスタ」という、ごく少数の小さな記憶場所だけ。だから①RAMの値をレジスタに読み込む(LOAD)、②レジスタ同士で計算する、③結果をレジスタからRAMへ書き戻す(STORE)、という3段階が必要になる。'},
       {who:'mirai', text:'読み込んで、計算して、書き込む……なるほど。'},
       {who:'hakase', text:'その通り。実際にこの3段階を、順番に体験してみよう。'},
     ],
     build: buildCpu,
+  },
+  {
+    key:'cache', title:'CPUキャッシュ', sub:'ヒット・ミスと局所性',
+    missionText:'同じアドレスや近くのアドレスへのアクセスを繰り返して、キャッシュのヒット・ミスと入れ替わりを体験しよう。',
+    dialogue:[
+      {who:'hakase', text:'さっきレジスタの話をしたが、実はCPUとRAMの間には、もうひとつ「キャッシュ」という仕組みがあるんじゃ。'},
+      {who:'mirai', text:'レジスタだけじゃダメなんですか？'},
+      {who:'hakase', text:'レジスタは数個しかない。かといって毎回RAMまで取りに行くのは遅い。そこで、最近使ったデータを手元に置いておく「キャッシュ」という小さな置き場を使うんじゃ。あればHIT（速い）、なければMISS（遅い、RAMまで取りに行く）じゃ。'},
+      {who:'mirai', text:'よく使うものを手元に置いておく、ということですね。'},
+      {who:'hakase', text:'その通り。実際にアクセスを繰り返して、HITとMISSを体験してみよう。'},
+    ],
+    build: buildCache,
+  },
+  {
+    key:'layout', title:'メモリレイアウト全体像', sub:'コード・データ・ヒープ・スタック',
+    missionText:'コード領域・静的データ領域・ヒープ・スタックそれぞれに、どんなデータが置かれるかを見分けよう。',
+    dialogue:[
+      {who:'hakase', text:'ここまでヒープとスタックが同じRAMの両端を使う話をしたが、実は1本のRAMにはもっと多くの区画があるんじゃ。'},
+      {who:'mirai', text:'ヒープとスタック以外にも、区画があるんですか？'},
+      {who:'hakase', text:'そうじゃ。低い番地から順に「コード領域」「静的データ領域」「ヒープ」「（空き）」「スタック」と並んでおる。プログラムの命令そのものや、グローバル変数もこのRAMのどこかに置かれておるんじゃよ。'},
+      {who:'mirai', text:'命令もデータも、全部同じRAMの中にあるんですね。'},
+      {who:'hakase', text:'その通り。実際に、いろいろなデータがどの区画に置かれるか、見分けてみよう。'},
+    ],
+    build: buildLayout,
+  },
+  {
+    key:'bugs', title:'典型的なメモリバグ', sub:'ダングリングポインタ・オーバーフロー',
+    missionText:'ダングリングポインタ・バッファオーバーフロー・スタックオーバーフローという3つの典型的なバグを体験しよう。',
+    dialogue:[
+      {who:'hakase', text:'最後に、これまで学んだ知識を使って、メモリにまつわる典型的なバグを3つ見ていこう。'},
+      {who:'mirai', text:'ポインタやヒープ、スタックの話が、実際のバグにつながるんですね。'},
+      {who:'hakase', text:'その通り。仕組みを知っていれば、なぜそのバグが起きるのかが分かるようになる。順番に体験してみよう。'},
+    ],
+    build: buildBugs,
   },
 ];
 
@@ -495,7 +575,7 @@ function showEnding(){
   main.innerHTML = `
     <div class="ending">
       <h2>🎉 メモリークエスト・クリア！</h2>
-      <p>RAM・スタック・ヒープ・ポインタ・メモリリーク・ガベージコレクション・CPUとレジスタ。<br>王国の記憶管理士として、メモリの仕組みをひと通り体験できたね。</p>
+      <p>RAM・スタック・ヒープ・ポインタ・メモリリーク・ガベージコレクション・CPUとレジスタ・キャッシュ・メモリレイアウト・典型的なバグ。<br>王国の記憶管理士として、メモリの仕組みをひと通り体験できたね。</p>
       <div class="ending-list">
         ✅ RAM = 番地付きの箱の集まり<br>
         ✅ スタック = LIFOで積み上がる領域<br>
@@ -503,7 +583,10 @@ function showEnding(){
         ✅ ポインタ = 実体ではなく「住所」を持つ変数<br>
         ✅ メモリリーク = 解放し忘れて溜まり続けること<br>
         ✅ GC = 参照されなくなったデータの自動回収<br>
-        ✅ CPU = レジスタに読み込み(LOAD)・演算し・書き戻す(STORE)
+        ✅ CPU = レジスタに読み込み(LOAD)・演算し・書き戻す(STORE)<br>
+        ✅ キャッシュ = よく使うデータを手元に置く高速な仕組み<br>
+        ✅ メモリレイアウト = コード・静的データ・ヒープ・スタックの配置<br>
+        ✅ 典型的なバグ = ダングリングポインタ・オーバーフロー
       </div>
       <button class="btn btn-primary" id="btn-replay">↺ はじめから遊びなおす</button>
     </div>
@@ -1268,6 +1351,448 @@ function buildCpu(root, ctx){
 
   renderRam();
   renderRegs();
+  showStep();
+}
+
+/* =====================================================================
+   Stage 8: CPU Cache ― hit / miss / eviction
+   ===================================================================== */
+function buildCache(root, ctx){
+  const RAM_SIZE = 16;
+  const ram = Array.from({length:RAM_SIZE}, (_, i) => (i * 11) % 97);
+  const CACHE_LINES = 4;
+  let cache = Array(CACHE_LINES).fill(null); // {addr, val}
+  let insertPtr = 0;
+  let hits = 0, total = 0;
+
+  const steps = [
+    {kind:'access', addr:2, label:'まずは0x02へアクセスしてみよう。キャッシュはまだ空なので、MISSになるはずじゃ。', btn:'0x02 へアクセス'},
+    {kind:'access', addr:5, label:'続けて0x05へアクセスしてみよう。', btn:'0x05 へアクセス'},
+    {kind:'access', addr:2, label:'もう一度0x02へアクセスしてみよう。さっき読み込んだばかりの番地じゃ。', btn:'0x02 へアクセス'},
+    {kind:'quiz', label:'なぜ2回目の0x02へのアクセスは一瞬（HIT）だったのでしょう？',
+      options:[
+        {t:'直前のアクセスでキャッシュに残っていたから', ok:true},
+        {t:'RAMの値がそもそも変わったから', ok:false},
+        {t:'たまたま運が良かっただけ', ok:false},
+      ]},
+    {kind:'access', addr:9, label:'0x09へアクセスしてみよう。', btn:'0x09 へアクセス'},
+    {kind:'access', addr:13, label:'0x0Dへアクセスしてみよう。これでキャッシュが満杯（4件）になる。', btn:'0x0D へアクセス'},
+    {kind:'access', addr:1, label:'0x01へアクセスしてみよう。キャッシュが満杯のとき、何が起きるか見てみよう。', btn:'0x01 へアクセス'},
+    {kind:'access', addr:2, label:'もう一度0x02へアクセスしてみよう。', btn:'0x02 へアクセス'},
+    {kind:'quiz', label:'さっきHITした0x02が、今回はMISSになりました。なぜでしょう？',
+      options:[
+        {t:'キャッシュの容量に限りがあり、他のアクセスで追い出されてしまったから', ok:true},
+        {t:'0x02のデータが消えてなくなったから', ok:false},
+        {t:'キャッシュは2回しか使えない決まりだから', ok:false},
+      ]},
+  ];
+  let stepIndex = 0;
+
+  root.innerHTML = `
+    <div class="cpu-panel">
+      <h4>RAM</h4>
+      <div class="mem-grid" id="cache-ram-grid"></div>
+    </div>
+    <div class="cpu-panel" style="margin-top:12px">
+      <h4>キャッシュ（4ライン）</h4>
+      <div class="cache-row" id="cache-row"></div>
+      <div class="access-log" id="access-log"></div>
+      <div class="hit-rate" id="hit-rate"></div>
+    </div>
+    <p class="step-desc" id="step-desc" style="margin-top:12px"></p>
+    <div id="step-action"></div>
+  `;
+
+  function renderRam(flashAddr, flashCls){
+    const grid = qs('#cache-ram-grid', root);
+    grid.innerHTML = '';
+    ram.forEach((val, addr)=>{
+      const d = document.createElement('div');
+      d.className = 'mem-cell' + (addr === flashAddr ? ` ${flashCls}` : '');
+      d.innerHTML = `<span class="mem-addr">0x${addr.toString(16).toUpperCase().padStart(2,'0')}</span><span class="mem-val">${val}</span>`;
+      grid.appendChild(d);
+    });
+  }
+
+  function renderCache(flashIdx, flashCls){
+    const row = qs('#cache-row', root);
+    row.innerHTML = '';
+    cache.forEach((line, i)=>{
+      const d = document.createElement('div');
+      d.className = 'cache-line' + (line ? ' filled' : '') + (i === flashIdx ? ` ${flashCls}` : '');
+      d.innerHTML = line
+        ? `<div class="cache-line-tag">0x${line.addr.toString(16).toUpperCase().padStart(2,'0')}</div><div class="cache-line-val">${line.val}</div>`
+        : `<div class="cache-line-tag">空き</div><div class="cache-line-val">—</div>`;
+      row.appendChild(d);
+    });
+  }
+
+  function logAccess(addr, isHit){
+    const log = qs('#access-log', root);
+    const chip = document.createElement('span');
+    chip.className = 'access-chip ' + (isHit ? 'hit' : 'miss');
+    chip.textContent = `0x${addr.toString(16).toUpperCase().padStart(2,'0')} ${isHit ? 'HIT' : 'MISS'}`;
+    log.appendChild(chip);
+    qs('#hit-rate', root).textContent = `ヒット率: ${hits} / ${total}`;
+  }
+
+  function doAccess(addr){
+    total++;
+    const idx = cache.findIndex(c => c && c.addr === addr);
+    if(idx !== -1){
+      hits++;
+      renderCache(idx, 'flash-hit');
+      renderRam(-1, null);
+      logAccess(addr, true);
+    } else {
+      let slot = cache.findIndex(c => c === null);
+      if(slot === -1){ slot = insertPtr; insertPtr = (insertPtr + 1) % CACHE_LINES; }
+      cache[slot] = {addr, val: ram[addr]};
+      renderCache(slot, 'flash-miss');
+      renderRam(addr, 'flash-ok');
+      logAccess(addr, false);
+    }
+  }
+
+  function showStep(){
+    const step = steps[stepIndex];
+    qs('#step-desc', root).textContent = step.label || '';
+    const actionEl = qs('#step-action', root);
+
+    if(step.kind === 'quiz'){
+      const opts = shuffle(step.options);
+      actionEl.innerHTML = `<div class="choice-list">${opts.map(o=>`<button class="choice-btn" data-ok="${o.ok}">${o.t}</button>`).join('')}</div>`;
+      actionEl.querySelectorAll('.choice-btn').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          if(btn.dataset.ok === 'true'){
+            btn.classList.add('choice-ok');
+            setTimeout(advance, 500);
+          } else {
+            btn.classList.add('choice-ng');
+            setTimeout(()=>btn.classList.remove('choice-ng'), 400);
+          }
+        });
+      });
+      return;
+    }
+
+    actionEl.innerHTML = `<button class="btn btn-primary" id="btn-do">${step.btn}</button>`;
+    qs('#btn-do', actionEl).addEventListener('click', ()=>{
+      doAccess(step.addr);
+      advance();
+    });
+  }
+
+  function advance(){
+    stepIndex++;
+    if(stepIndex >= steps.length){
+      qs('#step-desc', root).textContent = '🎉 キャッシュのヒット・ミスと、容量による入れ替わりを体験できたね。';
+      qs('#step-action', root).innerHTML = '';
+      ctx.complete();
+      return;
+    }
+    showStep();
+  }
+
+  renderRam();
+  renderCache();
+  showStep();
+}
+
+/* =====================================================================
+   Stage 9: Process memory layout ― code / data / heap / stack
+   ===================================================================== */
+function buildLayout(root, ctx){
+  const items = [
+    {id:1, text:'コンパイルされた命令（プログラム本体）', correct:'code'},
+    {id:2, text:'グローバル変数 int total = 0;', correct:'data'},
+    {id:3, text:'malloc / new で確保したデータ', correct:'heap'},
+    {id:4, text:'関数のローカル変数', correct:'stack'},
+    {id:5, text:'関数呼び出しの戻り先アドレス', correct:'stack'},
+    {id:6, text:'文字列リテラル "Hello"', correct:'data'},
+  ];
+  const marks = {};
+  let locked = false;
+
+  const CATS = [
+    {key:'code', label:'コード'},
+    {key:'data', label:'静的データ'},
+    {key:'heap', label:'ヒープ'},
+    {key:'stack', label:'スタック'},
+  ];
+
+  root.innerHTML = `
+    <div class="layout-map">
+      <div class="layout-zone code">コード</div>
+      <div class="layout-zone data">静的データ</div>
+      <div class="layout-zone heap">ヒープ →</div>
+      <div class="layout-zone gap">空き</div>
+      <div class="layout-zone stack">← スタック</div>
+    </div>
+    <div class="layout-addr-note">低い番地 ─────────────────────────────────→ 高い番地</div>
+    <div class="layout-grid" id="layout-grid"></div>
+    <div id="layout-action" style="margin-top:12px"></div>
+  `;
+
+  function renderGrid(){
+    const grid = qs('#layout-grid', root);
+    grid.innerHTML = items.map(it=>{
+      const mark = marks[it.id];
+      return `<div class="layout-card" data-id="${it.id}">
+        <div class="layout-card-title">${it.text}</div>
+        <div class="layout-btns">
+          ${CATS.map(c=>`<button class="layout-btn ${mark===c.key?'on':''}" data-id="${it.id}" data-v="${c.key}">${c.label}</button>`).join('')}
+        </div>
+      </div>`;
+    }).join('');
+    if(locked) return;
+    grid.querySelectorAll('.layout-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        marks[btn.dataset.id] = btn.dataset.v;
+        renderGrid();
+        renderAction();
+      });
+    });
+  }
+
+  function renderAction(){
+    const actionEl = qs('#layout-action', root);
+    if(Object.keys(marks).length < items.length){
+      actionEl.innerHTML = `<p class="step-desc">すべての項目について、どの区画に置かれるか選ぼう。</p>`;
+      return;
+    }
+    actionEl.innerHTML = `<button class="btn btn-primary" id="btn-check">判定する</button>`;
+    qs('#btn-check', actionEl).addEventListener('click', checkAnswers);
+  }
+
+  function checkAnswers(){
+    let allCorrect = true;
+    const grid = qs('#layout-grid', root);
+    items.forEach(it=>{
+      const card = grid.querySelector(`.layout-card[data-id="${it.id}"]`);
+      const guess = marks[it.id];
+      card.classList.remove('right', 'wrong');
+      const hint = card.querySelector('.layout-hint');
+      if(hint) hint.remove();
+      if(guess === it.correct){
+        card.classList.add('right');
+      } else {
+        allCorrect = false;
+        card.classList.add('wrong');
+        const catLabel = CATS.find(c => c.key === it.correct).label;
+        const p = document.createElement('div');
+        p.className = 'layout-hint';
+        p.textContent = `正解: ${catLabel}`;
+        card.appendChild(p);
+        delete marks[it.id];
+      }
+    });
+    if(allCorrect){
+      locked = true;
+      qs('#layout-action', root).innerHTML = `<p class="step-desc">🎉 全問正解！コード・静的データ・ヒープ・スタック、それぞれの役割が分かったね。</p>`;
+      ctx.complete();
+    } else {
+      qs('#layout-action', root).innerHTML = `<p class="step-desc">赤いカードは判定が違います。カードのボタンを押して選び直そう。</p>`;
+    }
+  }
+
+  renderGrid();
+  renderAction();
+}
+
+/* =====================================================================
+   Stage 10: Classic memory bugs
+   ===================================================================== */
+function buildBugs(root, ctx){
+  const HEADINGS = {
+    dangling: '① ダングリングポインタ（解放後アクセス）',
+    overflow: '② バッファオーバーフロー',
+    stackoverflow: '③ スタックオーバーフロー',
+  };
+  const STACK_LIMIT = 6;
+  let stackDepth = 0;
+  const overflowCells = [null, null, null, null, {tag:'y', color:'#c98b1f'}];
+
+  const steps = [
+    {kind:'info', section:'dangling', label:'まずは「ダングリングポインタ」を見てみよう。ヒープにデータXを確保し、ポインタptrがそれを指している状態からスタートする。', btn:'つぎへ'},
+    {kind:'action-free', label:'free(X) を実行してヒープを解放してみよう。', btn:'free(X) を実行'},
+    {kind:'quiz', label:'解放した後もptrはXがあった番地を指したままです。この状態でptrを使って値を読み書きするとどうなるでしょう？',
+      options:[
+        {t:'すでに解放され、無効になった領域にアクセスしてしまう（ダングリングポインタ）', ok:true},
+        {t:'安全に元のXの値が読み書きできる', ok:false},
+        {t:'自動的にエラーになり、必ず安全に停止する', ok:false},
+      ]},
+    {kind:'info', section:'overflow', label:'次は「バッファオーバーフロー」。サイズ4の配列 buf[4] を確保した。隣には別の変数 y が置かれている。まずbuf[0]〜buf[3]まで順番に書き込んでみよう。', btn:'つぎへ'},
+    {kind:'fill-buf', label:'buf[0]〜buf[3]に書き込もう。', btn:'buf[0]〜buf[3] に書き込む'},
+    {kind:'overflow-write', label:'では、確保していないbuf[4]にも書き込んでみよう。', btn:'buf[4] に書き込んでみる（本来は許されない）'},
+    {kind:'quiz', label:'buf[4]への書き込みで何が起きたでしょう？',
+      options:[
+        {t:'配列の外、隣の変数yの領域を上書きしてしまった（バッファオーバーフロー）', ok:true},
+        {t:'自動でbufのサイズが5に拡張された', ok:false},
+        {t:'何も起きず、安全に無視された', ok:false},
+      ]},
+    {kind:'info', section:'stackoverflow', label:'最後は「スタックオーバーフロー」。終了条件のない再帰関数 recurse() を呼び出してみよう。', btn:'つぎへ'},
+    {kind:'recurse', label:'recurse() をもう一段階呼び出してみよう。終了条件がないので、これを繰り返すとどうなるだろうか？', btn:'recurse() を呼び出す'},
+    {kind:'quiz', label:'スタックオーバーフローが起きる主な原因は？',
+      options:[
+        {t:'終了条件のない、または深すぎる再帰呼び出しでスタックを使い切ってしまうこと', ok:true},
+        {t:'ヒープの断片化', ok:false},
+        {t:'CPUキャッシュのミス', ok:false},
+      ]},
+  ];
+  let stepIndex = 0;
+
+  root.innerHTML = `
+    <div class="bug-section">
+      <div class="bug-heading" id="bug-heading"></div>
+      <div id="bug-visual"></div>
+      <p class="step-desc" id="step-desc" style="margin-top:10px"></p>
+      <div id="step-action" style="margin-top:10px"></div>
+    </div>
+  `;
+
+  function renderDanglingHeap(allocated){
+    const row = qs('#dangling-heap', root);
+    row.innerHTML = '';
+    for(let i=0;i<4;i++){
+      const d = document.createElement('div');
+      d.className = 'heap-cell' + (allocated && i<3 ? ' filled' : '');
+      if(allocated && i<3){ d.style.background = '#7a63d6'; d.textContent = 'X'; }
+      row.appendChild(d);
+    }
+  }
+  function setupDangling(){
+    qs('#bug-heading', root).textContent = HEADINGS.dangling;
+    qs('#bug-visual', root).innerHTML = `
+      <div class="heap-row" id="dangling-heap" style="grid-template-columns:repeat(4,1fr)"></div>
+      <div style="margin-top:10px"><span class="chip matched" id="dangling-ptr">ptr[0xF4] → 0x100(X)</span></div>
+    `;
+    renderDanglingHeap(true);
+  }
+
+  function renderOverflowRow(flashIdx, flashCls){
+    const row = qs('#overflow-row', root);
+    row.innerHTML = '';
+    overflowCells.forEach((cell, i)=>{
+      const d = document.createElement('div');
+      d.className = 'heap-cell' + (cell ? ' filled' : '') + (i === flashIdx ? ` ${flashCls}` : '');
+      if(cell){ d.style.background = cell.color; d.textContent = cell.tag; }
+      else { d.textContent = `buf[${i}]`; d.style.fontSize = '9px'; d.style.color = 'var(--muted)'; }
+      row.appendChild(d);
+    });
+  }
+  function setupOverflow(){
+    qs('#bug-heading', root).textContent = HEADINGS.overflow;
+    qs('#bug-visual', root).innerHTML = `<div class="heap-row" id="overflow-row" style="grid-template-columns:repeat(5,1fr)"></div>`;
+    renderOverflowRow();
+  }
+
+  function renderRecurseStack(){
+    const col = qs('#recurse-stack', root);
+    col.innerHTML = '';
+    for(let i=0;i<stackDepth;i++){
+      const b = document.createElement('div');
+      b.className = 'stack-block';
+      b.innerHTML = `<span class="blk-var">recurse() 呼び出し#${i+1}</span>`;
+      col.appendChild(b);
+    }
+  }
+  function setupStackOverflow(){
+    qs('#bug-heading', root).textContent = HEADINGS.stackoverflow;
+    qs('#bug-visual', root).innerHTML = `<div class="stack-col" id="recurse-stack" style="min-height:auto"></div>`;
+    stackDepth = 0;
+    renderRecurseStack();
+  }
+
+  function showStep(){
+    const step = steps[stepIndex];
+    if(step.section === 'dangling') setupDangling();
+    else if(step.section === 'overflow') setupOverflow();
+    else if(step.section === 'stackoverflow') setupStackOverflow();
+
+    qs('#step-desc', root).textContent = step.label || '';
+    const actionEl = qs('#step-action', root);
+
+    if(step.kind === 'quiz'){
+      const opts = shuffle(step.options);
+      actionEl.innerHTML = `<div class="choice-list">${opts.map(o=>`<button class="choice-btn" data-ok="${o.ok}">${o.t}</button>`).join('')}</div>`;
+      actionEl.querySelectorAll('.choice-btn').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          if(btn.dataset.ok === 'true'){
+            btn.classList.add('choice-ok');
+            setTimeout(advance, 500);
+          } else {
+            btn.classList.add('choice-ng');
+            setTimeout(()=>btn.classList.remove('choice-ng'), 400);
+          }
+        });
+      });
+      return;
+    }
+
+    actionEl.innerHTML = `<button class="btn btn-primary" id="btn-do">${step.btn}</button>`;
+
+    if(step.kind === 'info'){
+      qs('#btn-do', actionEl).addEventListener('click', advance);
+      return;
+    }
+
+    if(step.kind === 'action-free'){
+      qs('#btn-do', actionEl).addEventListener('click', ()=>{
+        renderDanglingHeap(false);
+        const ptr = qs('#dangling-ptr', root);
+        ptr.classList.remove('matched');
+        ptr.classList.add('flash-ng');
+        qs('#bug-visual', root).insertAdjacentHTML('beforeend', `<p class="cpu-flow-note" style="margin-top:8px">Xの3マスは解放され空きに戻ったが、ptrの表示（0x100(X)）はそのままじゃ。</p>`);
+        advance();
+      });
+      return;
+    }
+
+    if(step.kind === 'fill-buf'){
+      qs('#btn-do', actionEl).addEventListener('click', ()=>{
+        for(let i=0;i<4;i++) overflowCells[i] = {tag:`buf[${i}]`, color:'#33a7a0'};
+        renderOverflowRow();
+        advance();
+      });
+      return;
+    }
+
+    if(step.kind === 'overflow-write'){
+      qs('#btn-do', actionEl).addEventListener('click', ()=>{
+        overflowCells[4] = {tag:'buf[4]', color:'#c0392b'};
+        renderOverflowRow(4, 'bug-cell-corrupt');
+        qs('#bug-visual', root).insertAdjacentHTML('beforeend', `<div class="bug-alert">💥 buf[4]への書き込みが、隣の変数 y（もともとの値）の領域を上書きしてしまった！</div>`);
+        setTimeout(advance, 1000);
+      });
+      return;
+    }
+
+    if(step.kind === 'recurse'){
+      qs('#btn-do', actionEl).addEventListener('click', ()=>{
+        stackDepth++;
+        renderRecurseStack();
+        if(stackDepth >= STACK_LIMIT){
+          qs('#bug-visual', root).insertAdjacentHTML('beforeend', `<div class="bug-alert">💥 スタックオーバーフロー！ recurse()が${STACK_LIMIT}回呼び出され、スタックの上限を超えてクラッシュした。</div>`);
+          setTimeout(advance, 1200);
+        }
+      });
+      return;
+    }
+  }
+
+  function advance(){
+    stepIndex++;
+    if(stepIndex >= steps.length){
+      qs('#bug-heading', root).textContent = '';
+      qs('#step-desc', root).textContent = '🎉 3つの典型的なバグを体験できたね。どれも、これまで学んだ仕組みを知っていれば理解できる現象じゃ。';
+      qs('#step-action', root).innerHTML = '';
+      ctx.complete();
+      return;
+    }
+    showStep();
+  }
+
   showStep();
 }
 
