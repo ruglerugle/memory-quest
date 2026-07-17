@@ -359,7 +359,7 @@ function ramMapHTML({active, heapUsed = 0, heapCap = MAP_HEAP_CAP, stackUsed = 0
         <div class="ram-map-zone free"><span class="ram-map-zone-label">空き</span></div>
         <div class="ram-map-zone stack ${stackActive ? 'active' : 'dim'}">${stackInner}</div>
       </div>
-      <div class="ram-map-note">枠で強調されている側が、今この章で実際に伸び縮みする領域じゃ。反対側の「🔒対象外」区画は、たとえ空いて見えても別の用途のために確保された場所で、ヒープとスタックが互いに奪い合うことはできない。</div>
+      <div class="ram-map-note">枠で強調されている側が、今この章で実際に伸び縮みする領域じゃ。反対側の「🔒対象外」区画は、この演習ではヒープ・スタックそれぞれの割り当てサイズを固定して見せている。実際のOSではヒープがこの空きへ境界を広げて大きくなることもあるが、それは「新しくメモリをもらう」仕組みであり、今回のような「すでに持っている領域内の空きを再利用する」話とは別物じゃ。</div>
     </div>
   `;
 }
@@ -668,7 +668,7 @@ function buildHeap(root, ctx){
     {kind:'allocFail', label:'では D（サイズ4）を確保してみよう。空き容量はあるはずだが……？', size:4, tag:'D', color:'#c96bb0', btn:'D を確保してみる'},
     {kind:'dialogue', lines:[
       {who:'mirai', text:'空き領域とヒープ領域の空きを足せば4バイト確保できませんか？'},
-      {who:'hakase', text:'いい質問じゃ。じゃが、それはできん。理由は2つある。ひとつは、外側の「空き」はヒープの区画の外にあるから、ヒープがそこを使うことはできん。もうひとつは、ヒープの中の空き（3マス＋3マス）も離れた場所にあって、ひとつながりになっていない。メモリの確保には「合計のバイト数」ではなく「連続した1つの塊」が必要なんじゃよ。'},
+      {who:'hakase', text:'するどいのう！実は現実のOSでは、ヒープはこの外側の空きに向かって境界を広げ、大きくなることがあるんじゃ。じゃが、それは「すでに持っている領域の中から空きを見つける」のとは別の、OSに追加のメモリを頼む仕組みでな。しかも境界を広げても、新しい領域は端に追加されるだけで、途中にある3マス＋3マスの隙間が埋まるわけではない。今回は断片化の話だけに集中したいから、ヒープのサイズをこの16マスに固定して見せておるんじゃ。'},
     ]},
     {kind:'quiz', label:'なぜ D（サイズ4）を確保できなかったのでしょう？',
       options:[
@@ -691,7 +691,7 @@ function buildHeap(root, ctx){
         <span class="legend-chip"><span class="legend-swatch" style="background:#7a63d6"></span>C</span>
         <span class="legend-chip"><span class="legend-swatch" style="background:#c96bb0"></span>D</span>
       </div>
-      <p class="ptr-hint" style="margin-top:8px">※ このマス目16個が、ヒープに割り当てられた区画のすべてじゃ。上のマップでスタック側が空いて見えても、ヒープの確保はこの16マスの中でしかできない。</p>
+      <p class="ptr-hint" style="margin-top:8px">※ この演習では、ヒープの区画をこの16マスに固定して見せておる。実際のOSではヒープが外側へ広がることもあるが、それでも新しく増える領域は端だけで、この16マスの中にできた隙間が自然に埋まるわけではない。</p>
     </div>
     <div id="step-action" style="margin-top:12px"></div>
   `;
@@ -749,7 +749,7 @@ function buildHeap(root, ctx){
           if(btn.dataset.ok === 'true'){
             btn.classList.add('choice-ok');
             setTimeout(()=>{
-              qs('#step-desc', root).textContent = '🎉 その通り！これが「断片化」じゃ。空きの合計だけでなく、連続した空きが必要なんじゃよ。しかも、ヒープが使えるのはヒープ専用の区画だけ。スタック側に余白があっても借りることはできんのじゃ。';
+              qs('#step-desc', root).textContent = '🎉 その通り！これが「断片化」じゃ。空きの合計だけでなく、連続した空きが必要なんじゃよ。ヒープが外に広がる仕組みとは別の問題として、覚えておくとよい。';
               actionEl.innerHTML = '';
               ctx.complete();
             }, 500);
