@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MEMORY QUEST ― 王国の記憶管理士 ―</title>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-9RTQCP2HXM"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-9RTQCP2HXM');
+</script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+html,body{max-width:100vw;overflow-x:hidden}
+:root{
+  --bg1:#1b1330;--bg2:#2c1c4a;--bg3:#100a1f;
+  --paper:#faf6ec;--paper2:#fffdf8;--ink:#2a2118;--muted:#8a7d68;--line:#ddd2ba;
+  --gold:#e8b93a;--gold-dark:#b5860f;
+  --stack:#e0824a;--stack-dark:#a85a26;
+  --heap:#33a7a0;--heap-dark:#1f746f;
+  --ptr:#7a63d6;
+  --ok:#2f9e5c;--ok-bg:#e6f5ec;--ok-bd:#8fd1ab;
+  --ng:#c8433f;--ng-bg:#fbe9e8;--ng-bd:#e79a97;
+  --shadow:0 16px 40px rgba(0,0,0,.35);
+  --r:10px;--f:system-ui,-apple-system,"Hiragino Sans","Yu Gothic",sans-serif;
+  --m:ui-monospace,'Cascadia Code','SFMono-Regular',monospace;
+}
+body{font-family:var(--f);color:var(--ink);font-weight:600;min-height:100vh;
+  background:radial-gradient(circle at 20% 0%,var(--bg2) 0,var(--bg1) 40%,var(--bg3) 100%);}
+.app-shell{min-height:100vh;display:flex;flex-direction:column;gap:12px;padding:10px 12px 24px;}
+
+/* Header */
+.game-header{display:flex;align-items:center;gap:18px;flex-wrap:wrap;color:#fff;padding:10px 16px;
+  background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(0,0,0,.12));border-radius:12px;border:1px solid rgba(255,255,255,.15)}
+.brand{display:flex;flex-direction:column;gap:2px;min-width:210px}
+.brand-title{font-size:23px;font-weight:950;letter-spacing:.03em;color:var(--gold);text-shadow:0 2px 0 rgba(0,0,0,.4)}
+.brand-sub{font-size:12.5px;font-weight:800;color:#e6ddf5}
+.head-progress-wrap{flex:1;min-width:160px;display:flex;flex-direction:column;gap:4px}
+.head-progress-label{font-size:11.5px;color:#d8cdee;font-weight:800}
+.head-progress{height:14px;background:rgba(255,255,255,.18);border-radius:999px;overflow:hidden;box-shadow:inset 0 2px 4px rgba(0,0,0,.3)}
+.head-progress-fill{height:100%;width:0;background:linear-gradient(90deg,#ffe28a,var(--gold));border-radius:999px;transition:width .4s}
+.head-reset{padding:9px 14px;border:1.5px solid rgba(255,255,255,.55);border-radius:8px;background:rgba(0,0,0,.2);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer;white-space:nowrap}
+.head-reset:hover{background:rgba(255,255,255,.12)}
+
+/* Layout */
+.game-layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:14px;align-items:start}
+@media(max-width:820px){.game-layout{grid-template-columns:1fr}}
+
+/* Sidebar */
+.side-panel{background:linear-gradient(180deg,rgba(44,28,74,.92),rgba(20,13,36,.95));border:1px solid rgba(255,255,255,.16);
+  border-radius:12px;box-shadow:var(--shadow);overflow:hidden;position:sticky;top:10px}
+@media(max-width:820px){.side-panel{position:static;overflow-x:auto}}
+.side-head{padding:12px 14px;font-size:13px;font-weight:900;color:#e9dffb;border-bottom:1px solid rgba(255,255,255,.14)}
+.side-list{display:flex;flex-direction:column}
+@media(max-width:820px){.side-list{flex-direction:row}}
+.side-item{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid rgba(255,255,255,.09);
+  color:#cfc3e6;cursor:pointer;user-select:none;touch-action:manipulation;min-width:0}
+@media(max-width:820px){.side-item{border-bottom:none;border-right:1px solid rgba(255,255,255,.09);flex:0 0 auto;min-width:150px}}
+.side-item:hover{background:rgba(255,255,255,.06)}
+.side-item.active{background:rgba(232,185,58,.18);box-shadow:inset 3px 0 0 var(--gold)}
+.side-item.locked{opacity:.45;cursor:not-allowed}
+.side-icon{font-size:16px;width:20px;text-align:center;flex-shrink:0}
+.side-text{min-width:0}
+.side-main{font-size:12.5px;font-weight:900;line-height:1.3;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.side-sub{font-size:10.5px;color:#b6a9d4;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Main area */
+.main-area{background:var(--paper);border:1px solid #e3d8bd;border-radius:12px;padding:18px 18px 20px;box-shadow:var(--shadow);min-height:520px}
+.chapter-head{margin-bottom:12px}
+.chapter-badge{display:inline-block;background:linear-gradient(#f0c85a,var(--gold-dark));color:#3a2705;border-radius:7px;
+  padding:4px 11px;font-size:12px;font-weight:950;letter-spacing:.02em;margin-right:8px;box-shadow:0 2px 0 rgba(0,0,0,.15)}
+.chapter-title{display:inline;font-size:20px;font-weight:950;color:#241a3d}
+.chapter-sub{font-size:13px;color:var(--muted);margin-top:4px;font-weight:700}
+
+/* Dialogue */
+.dialogue-scene{display:flex;flex-direction:column;gap:8px;margin:14px 0 16px}
+.d-row{display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px;align-items:center;
+  background:linear-gradient(180deg,#fff,var(--paper2));border:1px solid var(--line);border-radius:10px;padding:9px 12px}
+.d-row.right{grid-template-columns:minmax(0,1fr) 64px}
+.d-row.right .d-avatar{order:2}
+.d-row.right .d-bubble{order:1}
+.d-avatar{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;
+  box-shadow:0 3px 6px rgba(0,0,0,.18);flex-shrink:0}
+.d-avatar.hakase{background:linear-gradient(#dcefe6,#b9dccb)}
+.d-avatar.mirai{background:linear-gradient(#ffe3ea,#ffc4d3)}
+.d-bubble{font-size:13.5px;line-height:1.75;color:#251c3c;font-weight:700}
+.d-name{font-size:10.5px;font-weight:900;color:var(--muted);margin-bottom:2px}
+
+/* Mission box */
+.mission-box{background:linear-gradient(180deg,#fff8e6,#fdefc9);border:1px solid #e3c877;border-radius:10px;padding:12px 14px;margin-bottom:14px}
+.mission-label{font-size:11.5px;font-weight:950;color:#8a6614;margin-bottom:3px}
+.mission-text{font-size:13.5px;color:#3a2c08;font-weight:700;line-height:1.6}
+.mission-status{display:inline-block;margin-top:8px;padding:3px 11px;border-radius:999px;font-size:11.5px;font-weight:900;
+  background:#eee1bd;color:#8a6614}
+.mission-status.ok{background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-bd)}
+
+/* Stage nav */
+.stage-nav{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;flex-wrap:wrap}
+.btn{border:1px solid #c9bda0;background:#fff;border-radius:8px;padding:.65rem 1.2rem;font-size:13.5px;cursor:pointer;
+  color:var(--ink);font-family:var(--f);font-weight:800;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.btn:hover{background:#f4efe0}
+.btn-primary{background:linear-gradient(#7a63d6,#5b45b8);border-color:#4a3897;color:#fff;box-shadow:0 3px 0 #3a2c7a}
+.btn-primary:hover{opacity:.92;background:linear-gradient(#7a63d6,#5b45b8)}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
+
+/* Generic choice buttons */
+.choice-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.choice-btn{border:1.5px solid #b7a9d9;background:#fff;border-radius:8px;padding:.55rem 1rem;font-size:13px;font-weight:800;
+  cursor:pointer;color:#3a2c5c;touch-action:manipulation}
+.choice-btn:hover{background:#f2eefb}
+.choice-btn.choice-ok{background:var(--ok-bg);border-color:var(--ok-bd);color:var(--ok)}
+.choice-btn.choice-ng{background:var(--ng-bg);border-color:var(--ng-bd);color:var(--ng)}
+.quiz-q{font-size:13.5px;font-weight:850;color:#241a3d;margin-top:4px}
+
+/* ===== Stage1: RAM ===== */
+.ram-target{font-size:14px;font-weight:900;color:#3a2c5c;margin-bottom:12px}
+.addr-badge{display:inline-block;background:#241a3d;color:var(--gold);font-family:var(--m);padding:2px 10px;border-radius:6px;font-size:14px}
+.mem-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:8px}
+@media(max-width:520px){.mem-grid{grid-template-columns:repeat(4,1fr)}}
+.mem-cell{background:#fff;border:1.5px solid #cbbfe0;border-radius:8px;padding:8px 4px;text-align:center;cursor:pointer;
+  display:flex;flex-direction:column;gap:3px;touch-action:manipulation;transition:transform .1s}
+.mem-cell:hover{border-color:var(--ptr);transform:translateY(-2px)}
+.mem-addr{font-family:var(--m);font-size:11px;color:var(--muted)}
+.mem-val{font-family:var(--m);font-size:14px;font-weight:800;color:#241a3d}
+.mem-cell.flash-ok{background:var(--ok-bg);border-color:var(--ok-bd)}
+.mem-cell.flash-ng{background:var(--ng-bg);border-color:var(--ng-bd)}
+
+/* ===== Stage2: Stack ===== */
+.stack-stage{display:grid;grid-template-columns:200px minmax(0,1fr);gap:20px}
+@media(max-width:600px){.stack-stage{grid-template-columns:1fr}}
+.stack-visual{display:flex;flex-direction:column;align-items:center;gap:8px}
+.stack-col{display:flex;flex-direction:column-reverse;gap:6px;min-height:220px;justify-content:flex-start;width:100%}
+.stack-block{background:linear-gradient(180deg,#f0a870,var(--stack));border:1.5px solid var(--stack-dark);border-radius:8px;
+  padding:9px 10px;display:flex;justify-content:space-between;align-items:center;color:#3a1c05;font-weight:900;
+  box-shadow:0 3px 0 var(--stack-dark);animation:popIn .25s ease}
+.stack-block.top{outline:2px dashed #5b45b8;outline-offset:2px}
+.blk-var{font-family:var(--m);font-size:13.5px}
+.blk-frame{font-size:10.5px;background:rgba(0,0,0,.15);padding:2px 7px;border-radius:999px}
+.stack-base{font-size:11px;color:var(--muted);font-weight:800;border-top:2px solid #cbbfe0;padding-top:6px;width:100%;text-align:center}
+@keyframes popIn{from{opacity:0;transform:translateY(10px) scale(.9)}to{opacity:1;transform:none}}
+.step-desc{font-size:14px;font-weight:850;color:#241a3d;margin-bottom:10px;line-height:1.6}
+
+/* ===== Stage3: Heap ===== */
+.heap-row{display:grid;grid-template-columns:repeat(16,1fr);gap:5px;margin:14px 0}
+@media(max-width:640px){.heap-row{grid-template-columns:repeat(8,1fr)}}
+.heap-cell{height:40px;border-radius:6px;background:#efe9d8;border:1.5px dashed #c9bda0;display:flex;align-items:center;
+  justify-content:center;font-size:11px;font-weight:900;color:#fff;transition:background .2s}
+.heap-cell.filled{border-style:solid}
+.heap-stage.shake{animation:shakeX .4s}
+@keyframes shakeX{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.heap-msg{margin-top:8px;font-size:13px;font-weight:850}
+.heap-msg.ng{color:var(--ng)}
+.heap-msg.ok{color:var(--ok)}
+.heap-legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;font-weight:800;color:var(--muted);margin-top:6px}
+.legend-chip{display:inline-flex;align-items:center;gap:5px}
+.legend-swatch{width:12px;height:12px;border-radius:3px;display:inline-block}
+
+/* ===== Stage4: Pointer ===== */
+.ptr-board{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0}
+@media(max-width:600px){.ptr-board{grid-template-columns:1fr}}
+.ptr-board h4{font-size:12.5px;color:var(--muted);margin-bottom:8px}
+.chip{background:#fff;border:1.5px solid #b7a9d9;border-radius:9px;padding:10px 12px;margin-bottom:8px;cursor:pointer;
+  font-family:var(--m);font-size:13px;font-weight:800;color:#3a2c5c;touch-action:manipulation}
+.chip:hover{border-color:var(--ptr)}
+.chip.selected{background:#efeafb;border-color:var(--ptr);box-shadow:0 0 0 2px rgba(122,99,214,.25)}
+.chip.matched{background:var(--ok-bg);border-color:var(--ok-bd);color:var(--ok);cursor:default}
+.chip.flash-ng{background:var(--ng-bg);border-color:var(--ng-bd)}
+.ptr-hint{font-size:12.5px;color:var(--muted);line-height:1.6;margin-top:4px}
+
+/* ===== Stage5: Leak ===== */
+.gauge-row{display:flex;gap:6px;margin:12px 0}
+.gauge-cell{flex:1;height:34px;border-radius:6px;background:#efe9d8;border:1.5px solid #cbbfe0}
+.gauge-cell.filled{background:linear-gradient(180deg,#ef8b7f,var(--ng));border-color:#a12e2a}
+.leak-controls{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}
+.leak-progress{font-size:12.5px;color:var(--muted);font-weight:800;margin-top:6px}
+
+/* ===== Stage6: GC ===== */
+.ref-note{background:#f3eefb;border:1px solid #d6c7f0;border-radius:9px;padding:10px 12px;font-size:12.5px;line-height:1.8;
+  color:#3a2c5c;font-weight:700;margin-bottom:14px;white-space:pre-line}
+.gc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.gc-card{background:#fff;border:1.5px solid var(--line);border-radius:10px;padding:11px}
+.gc-card-title{font-family:var(--m);font-size:13px;font-weight:900;margin-bottom:8px}
+.gc-btns{display:flex;gap:6px}
+.gc-btn{flex:1;border:1.5px solid #c9bda0;background:#fff;border-radius:7px;padding:6px 4px;font-size:11.5px;font-weight:850;cursor:pointer}
+.gc-btn.on{background:#e6f5ec;border-color:var(--ok-bd);color:var(--ok)}
+.gc-card.wrong{border-color:var(--ng-bd);background:var(--ng-bg)}
+.gc-card.right{border-color:var(--ok-bd)}
+.gc-card.sweeping{animation:sweep .6s forwards}
+@keyframes sweep{to{opacity:0;transform:scale(.7)}}
+.gc-hint{font-size:11px;color:var(--ng);margin-top:4px;font-weight:800}
+
+/* Ending */
+.ending{text-align:center;padding:30px 10px}
+.ending h2{font-size:24px;color:#241a3d;margin-bottom:12px}
+.ending p{font-size:14px;color:var(--muted);line-height:1.8;max-width:520px;margin:0 auto 8px}
+.ending-list{text-align:left;max-width:460px;margin:16px auto;font-size:13px;line-height:2;color:#3a2c5c;font-weight:700}
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <header class="game-header">
+    <div class="brand">
+      <div class="brand-title">MEMORY QUEST</div>
+      <div class="brand-sub">― 王国の記憶管理士 ―</div>
+    </div>
+    <div class="head-progress-wrap">
+      <div class="head-progress-label" id="progress-label">クリア 0 / 6</div>
+      <div class="head-progress"><div class="head-progress-fill" id="progress-fill"></div></div>
+    </div>
+    <button class="head-reset" id="btn-reset-all">🔄 最初から</button>
+  </header>
+
+  <div class="game-layout">
+    <aside class="side-panel">
+      <div class="side-head">📚 章の一覧</div>
+      <div class="side-list" id="side-list"></div>
+    </aside>
+    <main class="main-area" id="main-area"></main>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const STAGES = [
+  {
+    key:'ram', title:'RAMの基本', sub:'番地というしくみ',
+    missionText:'指定された番地(アドレス)の箱を3回、見つけてクリックしよう。',
+    dialogue:[
+      {who:'hakase', text:'メモリ、つまりRAMの正体は……実はとてもシンプルなんじゃ。'},
+      {who:'hakase', text:'大量の「箱」が一列に並んでいて、箱ひとつひとつに背番号がついておる。この背番号を「アドレス（番地）」と呼ぶんじゃよ。'},
+      {who:'mirai', text:'箱の中には何が入ってるんですか？'},
+      {who:'hakase', text:'1つの箱には1バイト分のデータが入る。プログラムはこの番地を指定して読み書きするんじゃ。まずは実際に、指定された番地の箱を見つけてみよう！'},
+    ],
+    build: buildRam,
+  },
+  {
+    key:'stack', title:'スタック領域', sub:'後入れ先出し(LIFO)',
+    missionText:'関数の呼び出し・終了に合わせて、変数をpush/popしてスタックの動きを体験しよう。',
+    dialogue:[
+      {who:'hakase', text:'関数を呼び出すたびに、スタックという領域に「積み木」が積まれていくんじゃ。'},
+      {who:'hakase', text:'これは後入れ先出し、英語でLIFO(Last In First Out)と呼ばれる仕組みでな。一番最後に積んだものが、一番先に取り除かれる。'},
+      {who:'mirai', text:'お皿を積み重ねるのと同じですね。上から順番にしか取れない……'},
+      {who:'hakase', text:'その通り。関数が終わって戻るときは、積んだ順とは逆の順番で片付けられていく。実際にやってみよう。'},
+    ],
+    build: buildStack,
+  },
+  {
+    key:'heap', title:'ヒープ領域', sub:'自由な確保と断片化',
+    missionText:'ヒープにデータを確保・解放して、断片化がなぜ起きるのかを確かめよう。',
+    dialogue:[
+      {who:'hakase', text:'一方でヒープは、スタックのように順番に積むのではなく、空いている場所を自由に選んで確保する領域じゃ。'},
+      {who:'mirai', text:'自由なんですね。それは便利そう。'},
+      {who:'hakase', text:'便利な反面、確保・解放を繰り返すと、あちこちに「隙間」ができてしまう。これを断片化と呼ぶんじゃ。実際に体験してみよう。'},
+    ],
+    build: buildHeap,
+  },
+  {
+    key:'pointer', title:'ポインタと参照', sub:'住所を指し示す',
+    missionText:'ポインタ変数を、それが指しているヒープ上のデータへ正しくつなげよう。',
+    dialogue:[
+      {who:'hakase', text:'ポインタとは、データの実体そのものではなく「住所（アドレス）」を持つ変数のことじゃ。'},
+      {who:'mirai', text:'住所……つまり、どこにあるかを覚えておくカードみたいなものですか？'},
+      {who:'hakase', text:'そうじゃ。スタック上の変数がヒープ上のデータの番地を持っていれば、いつでもそこへたどり着ける。実際につないで確かめてみよう。'},
+    ],
+    build: buildPointer,
+  },
+  {
+    key:'leak', title:'メモリリーク', sub:'解放し忘れの恐怖',
+    missionText:'解放を忘れるコードと、ちゃんと解放するコードを両方実行して違いを確かめよう。',
+    dialogue:[
+      {who:'hakase', text:'ヒープの確保には、必ず対になる「解放」が必要じゃ。もし解放を忘れると……'},
+      {who:'mirai', text:'忘れると、どうなるんですか？'},
+      {who:'hakase', text:'使われないメモリがどんどん溜まっていき、やがてメモリが尽きてしまう。これが「メモリリーク」じゃ。実際に確かめてみよう。'},
+    ],
+    build: buildLeak,
+  },
+  {
+    key:'gc', title:'ガベージコレクション', sub:'自動お片付け',
+    missionText:'どのデータが「もう参照されていないゴミ」かを見分けて、GCを実行しよう。',
+    dialogue:[
+      {who:'hakase', text:'最後に、ガベージコレクション、略してGCじゃ。'},
+      {who:'mirai', text:'さっきのメモリリーク……自動で防いでくれる仕組みですか？'},
+      {who:'hakase', text:'その通り！どこからも参照されなくなったデータを自動で見つけて、解放してくれる仕組みじゃ。まずは、どのデータが「誰からも参照されていないゴミ」か見分けてみよう。'},
+    ],
+    build: buildGC,
+  },
+];
+
+/* ---------- shared state / persistence ---------- */
+const STORE_KEY = 'memoryQuestProgress';
+const state = { unlocked:1, cleared:new Set(), currentIndex:0 };
+
+function loadProgress(){
+  try{
+    const raw = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+    if(raw){
+      state.unlocked = raw.unlocked || 1;
+      state.cleared = new Set(raw.cleared || []);
+    }
+  }catch(e){}
+  if (new URLSearchParams(location.search).has('all')) state.unlocked = STAGES.length;
+}
+function saveProgress(){
+  localStorage.setItem(STORE_KEY, JSON.stringify({unlocked:state.unlocked, cleared:[...state.cleared]}));
+}
+
+function qs(sel, root){ return (root||document).querySelector(sel); }
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+
+/* ---------- sidebar / header ---------- */
+function renderSidebar(){
+  const list = qs('#side-list');
+  list.innerHTML = STAGES.map((s,i)=>{
+    const locked = i > state.unlocked - 1;
+    const cleared = state.cleared.has(i);
+    const active = i === state.currentIndex;
+    const icon = cleared ? '✅' : locked ? '🔒' : '📖';
+    return `<div class="side-item ${active?'active':''} ${locked?'locked':''}" data-index="${i}">
+      <span class="side-icon">${icon}</span>
+      <span class="side-text">
+        <div class="side-main">第${i+1}章 ${s.title}</div>
+        <div class="side-sub">${s.sub}</div>
+      </span>
+    </div>`;
+  }).join('');
+  list.querySelectorAll('.side-item').forEach(item=>{
+    item.addEventListener('click', ()=>{
+      const i = Number(item.dataset.index);
+      if(i > state.unlocked - 1) return;
+      mountStage(i);
+    });
+  });
+
+  qs('#progress-label').textContent = `クリア ${state.cleared.size} / ${STAGES.length}`;
+  qs('#progress-fill').style.width = (state.cleared.size / STAGES.length * 100) + '%';
+}
+
+qs('#btn-reset-all').addEventListener('click', ()=>{
+  if(!confirm('進行状況をすべてリセットして最初からやり直しますか？')) return;
+  state.unlocked = 1; state.cleared = new Set();
+  saveProgress();
+  mountStage(0);
+});
+
+/* ---------- dialogue renderer ---------- */
+function renderDialogue(lines){
+  return lines.map(l=>{
+    const isMirai = l.who === 'mirai';
+    return `<div class="d-row ${isMirai?'right':''}">
+      <div class="d-avatar ${l.who}">${l.who==='hakase' ? '🦉' : '🧑‍💻'}</div>
+      <div class="d-bubble">
+        <div class="d-name">${l.who==='hakase' ? 'ハカセ（記憶の番人）' : 'ミライ（見習い）'}</div>
+        ${l.text}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ---------- stage mount / navigation ---------- */
+function mountStage(index){
+  state.currentIndex = index;
+  const meta = STAGES[index];
+  const main = qs('#main-area');
+  main.innerHTML = `
+    <div class="chapter-head">
+      <span class="chapter-badge">第${index+1}章</span><span class="chapter-title">${meta.title}</span>
+      <div class="chapter-sub">${meta.sub}</div>
+    </div>
+    <div class="dialogue-scene">${renderDialogue(meta.dialogue)}</div>
+    <div class="mission-box">
+      <div class="mission-label">🎯 ミッション</div>
+      <div class="mission-text">${meta.missionText}</div>
+      <div class="mission-status" id="mission-status">${state.cleared.has(index) ? '達成！' : '未達成'}</div>
+    </div>
+    <div class="stage-play" id="stage-play"></div>
+    <div class="stage-nav">
+      <button class="btn" id="btn-retry">↺ このステージをやり直す</button>
+      <button class="btn btn-primary" id="btn-next" ${state.cleared.has(index) ? '' : 'disabled'}>
+        ${index === STAGES.length-1 ? 'クリア画面へ ▶' : 'つぎのステージへ ▶'}
+      </button>
+    </div>
+  `;
+  if(state.cleared.has(index)) qs('#mission-status').classList.add('ok');
+
+  qs('#btn-retry').addEventListener('click', ()=> mountStage(index));
+  qs('#btn-next').addEventListener('click', ()=>{
+    if(index === STAGES.length-1) showEnding();
+    else mountStage(index+1);
+  });
+
+  const ctx = {
+    complete(){
+      if(state.cleared.has(index)) return;
+      state.cleared.add(index);
+      state.unlocked = Math.max(state.unlocked, index+2);
+      saveProgress();
+      const statusEl = qs('#mission-status');
+      statusEl.textContent = '達成！';
+      statusEl.classList.add('ok');
+      qs('#btn-next').removeAttribute('disabled');
+      renderSidebar();
+    },
+  };
+  meta.build(qs('#stage-play'), ctx);
+  renderSidebar();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function showEnding(){
+  const main = qs('#main-area');
+  main.innerHTML = `
+    <div class="ending">
+      <h2>🎉 メモリークエスト・クリア！</h2>
+      <p>RAM・スタック・ヒープ・ポインタ・メモリリーク・ガベージコレクション。<br>王国の記憶管理士として、メモリの仕組みをひと通り体験できたね。</p>
+      <div class="ending-list">
+        ✅ RAM = 番地付きの箱の集まり<br>
+        ✅ スタック = LIFOで積み上がる領域<br>
+        ✅ ヒープ = 自由確保・断片化が起きる領域<br>
+        ✅ ポインタ = 実体ではなく「住所」を持つ変数<br>
+        ✅ メモリリーク = 解放し忘れて溜まり続けること<br>
+        ✅ GC = 参照されなくなったデータの自動回収
+      </div>
+      <button class="btn btn-primary" id="btn-replay">↺ はじめから遊びなおす</button>
+    </div>
+  `;
+  qs('#btn-replay').addEventListener('click', ()=>{
+    state.unlocked = 1; state.cleared = new Set();
+    saveProgress();
+    mountStage(0);
+  });
+  state.currentIndex = -1;
+  renderSidebar();
+}
+
+/* =====================================================================
+   Stage 1: RAM ― find the address
+   ===================================================================== */
+function buildRam(root, ctx){
+  const cellCount = 16;
+  const cells = Array.from({length:cellCount}, (_,i)=>({
+    addr:i,
+    val: Math.floor(Math.random()*256).toString(16).padStart(2,'0'),
+  }));
+  let correct = 0;
+  let target = Math.floor(Math.random()*cellCount);
+
+  root.innerHTML = `
+    <div class="ram-target" id="ram-target-line">🎯 めざせ: <span id="ram-target-addr" class="addr-badge"></span>　（あと <span id="ram-remain">3</span> 回）</div>
+    <div class="mem-grid" id="mem-grid"></div>
+  `;
+  const grid = qs('#mem-grid', root);
+  cells.forEach(c=>{
+    const d = document.createElement('div');
+    d.className = 'mem-cell';
+    d.dataset.addr = c.addr;
+    d.innerHTML = `<span class="mem-addr">0x${c.addr.toString(16).toUpperCase().padStart(2,'0')}</span><span class="mem-val">${c.val}</span>`;
+    grid.appendChild(d);
+  });
+
+  function refresh(){
+    qs('#ram-target-addr', root).textContent = '0x' + target.toString(16).toUpperCase().padStart(2,'0');
+    qs('#ram-remain', root).textContent = 3 - correct;
+  }
+  refresh();
+
+  grid.addEventListener('click', e=>{
+    const cell = e.target.closest('.mem-cell');
+    if(!cell) return;
+    const addr = Number(cell.dataset.addr);
+    if(addr === target){
+      cell.classList.add('flash-ok');
+      setTimeout(()=>cell.classList.remove('flash-ok'), 400);
+      correct++;
+      if(correct >= 3){
+        qs('#ram-target-line', root).textContent = '🎉 3つとも見つけたね！これがアドレスで箱を指定するということじゃ。';
+        ctx.complete();
+        return;
+      }
+      let next;
+      do{ next = Math.floor(Math.random()*cellCount); }while(next === target);
+      target = next;
+      refresh();
+    } else {
+      cell.classList.add('flash-ng');
+      setTimeout(()=>cell.classList.remove('flash-ng'), 400);
+    }
+  });
+}
+
+/* =====================================================================
+   Stage 2: Stack ― push / pop LIFO walkthrough
+   ===================================================================== */
+function buildStack(root, ctx){
+  const steps = [
+    {type:'push', label:'main() 開始 → 変数 a = 1 を確保', v:'a=1', frame:'main'},
+    {type:'push', label:'foo(2) を呼び出し → 引数 x = 2 をpush', v:'x=2', frame:'foo'},
+    {type:'push', label:'foo() の中で 変数 y = 3 を確保', v:'y=3', frame:'foo'},
+    {type:'pop',  label:'foo() が終了 → 一番上の変数がpopされる'},
+    {type:'pop',  label:'foo() の後片付け → もう一つpopされる'},
+    {type:'pop',  label:'main() が終了 → 最後の変数がpopされる'},
+  ];
+  let stepIndex = 0;
+  const stackArr = [];
+
+  root.innerHTML = `
+    <div class="stack-stage">
+      <div class="stack-visual">
+        <div class="stack-col" id="stack-col"></div>
+        <div class="stack-base">スタックの底</div>
+      </div>
+      <div class="stack-controls">
+        <p class="step-desc" id="step-desc"></p>
+        <div id="step-action"></div>
+      </div>
+    </div>
+  `;
+
+  function renderStack(){
+    const col = qs('#stack-col', root);
+    col.innerHTML = '';
+    stackArr.forEach((item, i)=>{
+      const b = document.createElement('div');
+      b.className = 'stack-block' + (i === stackArr.length-1 ? ' top' : '');
+      b.innerHTML = `<span class="blk-var">${item.v}</span><span class="blk-frame">${item.frame}</span>`;
+      col.appendChild(b);
+    });
+  }
+
+  function showStep(){
+    const step = steps[stepIndex];
+    qs('#step-desc', root).textContent = step.label;
+    const actionEl = qs('#step-action', root);
+
+    if(step.type === 'push'){
+      actionEl.innerHTML = `<button class="btn btn-primary" id="btn-do">つぎへ（push）</button>`;
+      qs('#btn-do', actionEl).addEventListener('click', ()=>{
+        stackArr.push({v:step.v, frame:step.frame});
+        renderStack();
+        advance();
+      });
+      return;
+    }
+
+    // pop step
+    if(stackArr.length <= 1){
+      actionEl.innerHTML = `<button class="btn btn-primary" id="btn-do">つぎへ（pop）</button>`;
+      qs('#btn-do', actionEl).addEventListener('click', ()=>{
+        stackArr.pop();
+        renderStack();
+        advance();
+      });
+      return;
+    }
+
+    const correctV = stackArr[stackArr.length-1].v;
+    const pool = shuffle(stackArr.map(s=>s.v)).slice(0,3);
+    if(!pool.includes(correctV)) pool[0] = correctV;
+    const options = shuffle(pool);
+    actionEl.innerHTML = `
+      <p class="quiz-q">Q. スタックの一番上（次にpopされるの）はどれ？</p>
+      <div class="choice-list">${options.map(o=>`<button class="choice-btn" data-v="${o}">${o}</button>`).join('')}</div>
+    `;
+    actionEl.querySelectorAll('.choice-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        if(btn.dataset.v === correctV){
+          btn.classList.add('choice-ok');
+          stackArr.pop();
+          renderStack();
+          setTimeout(advance, 500);
+        } else {
+          btn.classList.add('choice-ng');
+          setTimeout(()=>btn.classList.remove('choice-ng'), 400);
+        }
+      });
+    });
+  }
+
+  function advance(){
+    stepIndex++;
+    if(stepIndex >= steps.length){
+      qs('#step-desc', root).textContent = '🎉 すべてのpush/popが完了！これがLIFOの流れじゃ。';
+      qs('#step-action', root).innerHTML = '';
+      ctx.complete();
+      return;
+    }
+    showStep();
+  }
+
+  renderStack();
+  showStep();
+}
+
+/* =====================================================================
+   Stage 3: Heap ― allocate / free / fragmentation
+   ===================================================================== */
+function buildHeap(root, ctx){
+  const TOTAL = 16;
+  let heap = Array(TOTAL).fill(null);
+
+  const steps = [
+    {kind:'alloc', label:'A（サイズ4）を確保してみよう', size:4, tag:'A', color:'#e0824a', btn:'A を確保する'},
+    {kind:'alloc', label:'B（サイズ3）を確保してみよう', size:3, tag:'B', color:'#33a7a0', btn:'B を確保する'},
+    {kind:'alloc', label:'C（サイズ6）を確保してみよう', size:6, tag:'C', color:'#7a63d6', btn:'C を確保する'},
+    {kind:'free',  label:'B を解放してみよう（真ん中に隙間ができる）', tag:'B', btn:'B を解放する'},
+    {kind:'allocFail', label:'では D（サイズ4）を確保してみよう。空き容量はあるはずだが……？', size:4, tag:'D', color:'#c96bb0', btn:'D を確保してみる'},
+    {kind:'quiz', label:'なぜ D（サイズ4）を確保できなかったのでしょう？',
+      options:[
+        {t:'空き容量の合計が4バイトより少なかったから', ok:false},
+        {t:'空きはあるが、連続した4バイトの空きがなかったから（断片化）', ok:true},
+        {t:'ヒープという領域がそもそも存在しないから', ok:false},
+      ]},
+  ];
+  let stepIndex = 0;
+
+  root.innerHTML = `
+    <p class="step-desc" id="step-desc"></p>
+    <div class="heap-stage" id="heap-stage">
+      <div class="heap-row" id="heap-row"></div>
+      <div class="heap-msg" id="heap-msg"></div>
+      <div class="heap-legend">
+        <span class="legend-chip"><span class="legend-swatch" style="background:#e0824a"></span>A</span>
+        <span class="legend-chip"><span class="legend-swatch" style="background:#33a7a0"></span>B</span>
+        <span class="legend-chip"><span class="legend-swatch" style="background:#7a63d6"></span>C</span>
+        <span class="legend-chip"><span class="legend-swatch" style="background:#c96bb0"></span>D</span>
+      </div>
+    </div>
+    <div id="step-action" style="margin-top:12px"></div>
+  `;
+
+  function renderHeap(){
+    const row = qs('#heap-row', root);
+    row.innerHTML = '';
+    heap.forEach(cell=>{
+      const d = document.createElement('div');
+      d.className = 'heap-cell' + (cell ? ' filled' : '');
+      if(cell){ d.style.background = cell.color; d.textContent = cell.tag; }
+      row.appendChild(d);
+    });
+  }
+
+  function tryAllocate(size, tag, color){
+    for(let i=0; i<=TOTAL-size; i++){
+      let fits = true;
+      for(let j=0;j<size;j++){ if(heap[i+j]){ fits=false; break; } }
+      if(fits){
+        for(let j=0;j<size;j++) heap[i+j] = {tag, color};
+        return true;
+      }
+    }
+    return false;
+  }
+  function freeTag(tag){
+    heap = heap.map(c => (c && c.tag === tag) ? null : c);
+  }
+
+  function showStep(){
+    const step = steps[stepIndex];
+    qs('#step-desc', root).textContent = step.label;
+    qs('#heap-msg', root).textContent = '';
+    qs('#heap-msg', root).className = 'heap-msg';
+    const actionEl = qs('#step-action', root);
+
+    if(step.kind === 'quiz'){
+      const opts = shuffle(step.options);
+      actionEl.innerHTML = `<div class="choice-list">${opts.map(o=>`<button class="choice-btn" data-ok="${o.ok}">${o.t}</button>`).join('')}</div>`;
+      actionEl.querySelectorAll('.choice-btn').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          if(btn.dataset.ok === 'true'){
+            btn.classList.add('choice-ok');
+            setTimeout(()=>{
+              qs('#step-desc', root).textContent = '🎉 その通り！これが「断片化」じゃ。空きの合計だけでなく、連続した空きが必要なんじゃよ。';
+              actionEl.innerHTML = '';
+              ctx.complete();
+            }, 500);
+          } else {
+            btn.classList.add('choice-ng');
+            setTimeout(()=>btn.classList.remove('choice-ng'), 400);
+          }
+        });
+      });
+      return;
+    }
+
+    actionEl.innerHTML = `<button class="btn btn-primary" id="btn-do">${step.btn}</button>`;
+    qs('#btn-do', actionEl).addEventListener('click', ()=>{
+      if(step.kind === 'alloc'){
+        tryAllocate(step.size, step.tag, step.color);
+        renderHeap();
+        advance();
+      } else if(step.kind === 'free'){
+        freeTag(step.tag);
+        renderHeap();
+        advance();
+      } else if(step.kind === 'allocFail'){
+        const ok = tryAllocate(step.size, step.tag, step.color);
+        renderHeap();
+        const msg = qs('#heap-msg', root);
+        if(ok){
+          msg.textContent = '⚠ このデモでは確保できてしまいました（乱数状態が想定と違うようです）。次へ進もう。';
+          msg.classList.add('ok');
+          advance();
+        } else {
+          msg.textContent = '❌ 確保できませんでした：連続した4マスの空きがありません。';
+          msg.classList.add('ng');
+          qs('#heap-stage', root).classList.add('shake');
+          setTimeout(()=> qs('#heap-stage', root).classList.remove('shake'), 400);
+          setTimeout(advance, 900);
+        }
+      }
+    });
+  }
+
+  function advance(){
+    stepIndex++;
+    if(stepIndex >= steps.length) return;
+    showStep();
+  }
+
+  renderHeap();
+  showStep();
+}
+
+/* =====================================================================
+   Stage 4: Pointer matching
+   ===================================================================== */
+function buildPointer(root, ctx){
+  const heapObjs = [
+    {id:'0x100', data:'"Apple"'},
+    {id:'0x108', data:'"Banana"'},
+    {id:'0x110', data:'"Cherry"'},
+  ];
+  const ptrs = [
+    {name:'ptrA', target:'0x108'},
+    {name:'ptrB', target:'0x100'},
+  ];
+  let selected = null;
+  const matched = {};
+
+  root.innerHTML = `
+    <p class="ptr-hint">ヒント: ptrA は 0x108 番地、ptrB は 0x100 番地のデータを指しています。ポインタを選んでから、対応するヒープのデータをクリックしよう。</p>
+    <div class="ptr-board">
+      <div>
+        <h4>スタック（ポインタ変数）</h4>
+        <div id="ptr-list"></div>
+      </div>
+      <div>
+        <h4>ヒープ（実データ）</h4>
+        <div id="heap-list"></div>
+      </div>
+    </div>
+    <div id="ptr-quiz"></div>
+  `;
+
+  function renderPtrList(){
+    const wrap = qs('#ptr-list', root);
+    wrap.innerHTML = ptrs.map(p=>{
+      const isMatched = matched[p.name];
+      const label = isMatched ? `${p.name} → ${matched[p.name]}` : `${p.name} → ?`;
+      const cls = isMatched ? 'matched' : (selected === p.name ? 'selected' : '');
+      return `<div class="chip ${cls}" data-name="${p.name}">${label}</div>`;
+    }).join('');
+    wrap.querySelectorAll('.chip').forEach(chip=>{
+      chip.addEventListener('click', ()=>{
+        const name = chip.dataset.name;
+        if(matched[name]) return;
+        selected = (selected === name) ? null : name;
+        renderPtrList();
+      });
+    });
+  }
+
+  function renderHeapList(){
+    const wrap = qs('#heap-list', root);
+    wrap.innerHTML = heapObjs.map(o=>{
+      const isMatched = Object.values(matched).includes(o.id);
+      return `<div class="chip ${isMatched?'matched':''}" data-id="${o.id}">${o.id} : ${o.data}</div>`;
+    }).join('');
+    wrap.querySelectorAll('.chip').forEach(chip=>{
+      chip.addEventListener('click', ()=>{
+        if(!selected) return;
+        const objId = chip.dataset.id;
+        const ptr = ptrs.find(p=>p.name === selected);
+        if(ptr.target === objId){
+          matched[selected] = objId;
+          selected = null;
+          renderPtrList();
+          renderHeapList();
+          if(Object.keys(matched).length === ptrs.length) showQuiz();
+        } else {
+          chip.classList.add('flash-ng');
+          setTimeout(()=>chip.classList.remove('flash-ng'), 400);
+        }
+      });
+    });
+  }
+
+  function showQuiz(){
+    const options = shuffle([
+      {t:'変わる（同じ実体を指しているから）', ok:true},
+      {t:'変わらない（ポインタはコピーだから）', ok:false},
+    ]);
+    qs('#ptr-quiz', root).innerHTML = `
+      <div class="mission-box" style="margin-top:14px">
+        <div class="mission-label">Q. ptrA が指す先（0x108 = Banana）の中身を書き換えると、元の Banana データは？</div>
+        <div class="choice-list">${options.map(o=>`<button class="choice-btn" data-ok="${o.ok}">${o.t}</button>`).join('')}</div>
+      </div>
+    `;
+    qs('#ptr-quiz', root).querySelectorAll('.choice-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        if(btn.dataset.ok === 'true'){
+          btn.classList.add('choice-ok');
+          setTimeout(ctx.complete, 400);
+        } else {
+          btn.classList.add('choice-ng');
+          setTimeout(()=>btn.classList.remove('choice-ng'), 400);
+        }
+      });
+    });
+  }
+
+  renderPtrList();
+  renderHeapList();
+}
+
+/* =====================================================================
+   Stage 5: Memory leak
+   ===================================================================== */
+function buildLeak(root, ctx){
+  const CAPACITY = 10;
+  let used = 0, hasLeaked = false, safeRuns = 0, quizShown = false;
+
+  root.innerHTML = `
+    <div class="leak-stage" id="leak-stage">
+      <div class="gauge-row" id="gauge-row"></div>
+      <div id="gauge-status" style="font-size:13px;font-weight:800;color:var(--muted)"></div>
+      <div class="leak-controls">
+        <button class="btn" id="btn-leak">❌ 解放し忘れコードを実行（確保のみ）</button>
+        <button class="btn" id="btn-safe">✅ ちゃんと解放するコードを実行（確保→解放）</button>
+        <button class="btn" id="btn-leak-reset">↺ ゲージをリセット</button>
+      </div>
+      <div class="leak-progress" id="leak-progress"></div>
+    </div>
+    <div id="leak-quiz"></div>
+  `;
+
+  function renderGauge(){
+    const row = qs('#gauge-row', root);
+    row.innerHTML = '';
+    for(let i=0;i<CAPACITY;i++){
+      const c = document.createElement('div');
+      c.className = 'gauge-cell' + (i < used ? ' filled' : '');
+      row.appendChild(c);
+    }
+    qs('#gauge-status', root).textContent = used >= CAPACITY ? '💥 メモリ不足！(Out of Memory)' : `使用中: ${used} / ${CAPACITY}`;
+  }
+  function renderProgress(){
+    qs('#leak-progress', root).textContent =
+      `リーク発生の確認: ${hasLeaked ? '✅ 完了' : '❌ まだ'}　／　解放版の実行: ${Math.min(safeRuns,5)} / 5`;
+  }
+
+  qs('#btn-leak', root).addEventListener('click', ()=>{
+    if(used >= CAPACITY) return;
+    used++;
+    if(used >= CAPACITY){
+      hasLeaked = true;
+      const stage = qs('#leak-stage', root);
+      stage.classList.add('shake');
+      setTimeout(()=>stage.classList.remove('shake'), 400);
+    }
+    renderGauge(); renderProgress(); checkProgress();
+  });
+  qs('#btn-safe', root).addEventListener('click', ()=>{
+    safeRuns++;
+    renderGauge(); renderProgress(); checkProgress();
+  });
+  qs('#btn-leak-reset', root).addEventListener('click', ()=>{
+    used = 0;
+    renderGauge(); renderProgress();
+  });
+
+  function checkProgress(){
+    if(hasLeaked && safeRuns >= 5 && !quizShown){
+      quizShown = true;
+      showQuiz();
+    }
+  }
+  function showQuiz(){
+    const options = shuffle([
+      {t:'確保したメモリを解放し忘れ、使われないまま残り続けてしまうこと', ok:true},
+      {t:'CPUの処理速度が遅くなること', ok:false},
+      {t:'ハードディスクの容量が足りなくなること', ok:false},
+    ]);
+    qs('#leak-quiz', root).innerHTML = `
+      <div class="mission-box" style="margin-top:14px">
+        <div class="mission-label">Q. メモリリークとは何でしょう？</div>
+        <div class="choice-list">${options.map(o=>`<button class="choice-btn" data-ok="${o.ok}">${o.t}</button>`).join('')}</div>
+      </div>
+    `;
+    qs('#leak-quiz', root).querySelectorAll('.choice-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        if(btn.dataset.ok === 'true'){
+          btn.classList.add('choice-ok');
+          setTimeout(ctx.complete, 400);
+        } else {
+          btn.classList.add('choice-ng');
+          setTimeout(()=>btn.classList.remove('choice-ng'), 400);
+        }
+      });
+    });
+  }
+
+  renderGauge(); renderProgress();
+}
+
+/* =====================================================================
+   Stage 6: Garbage Collection
+   ===================================================================== */
+function buildGC(root, ctx){
+  const objs = [
+    {id:'objA', label:'Data A', garbage:false},
+    {id:'objB', label:'Data B', garbage:false},
+    {id:'objC', label:'Data C', garbage:false},
+    {id:'objD', label:'Data D', garbage:true},
+    {id:'objE', label:'Data E', garbage:true},
+  ];
+  const marks = {};
+  let locked = false;
+
+  root.innerHTML = `
+    <div class="ref-note">参照関係:
+ルート → objA
+objA → objB
+ルート → objC
+objD → objE
+（objD を指しているものは、どこにもありません）</div>
+    <div class="gc-grid" id="gc-grid"></div>
+    <div id="gc-action"></div>
+  `;
+
+  function renderGrid(){
+    const grid = qs('#gc-grid', root);
+    grid.innerHTML = objs.map(o=>{
+      const mark = marks[o.id];
+      return `<div class="gc-card" data-id="${o.id}">
+        <div class="gc-card-title">${o.id} <span style="font-weight:600;color:var(--muted)">(${o.label})</span></div>
+        <div class="gc-btns">
+          <button class="gc-btn ${mark==='reachable'?'on':''}" data-id="${o.id}" data-v="reachable">到達可能</button>
+          <button class="gc-btn ${mark==='garbage'?'on':''}" data-id="${o.id}" data-v="garbage">ゴミ(未到達)</button>
+        </div>
+      </div>`;
+    }).join('');
+    if(locked) return;
+    grid.querySelectorAll('.gc-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        marks[btn.dataset.id] = btn.dataset.v;
+        renderGrid();
+        renderAction();
+      });
+    });
+  }
+
+  function renderAction(){
+    const actionEl = qs('#gc-action', root);
+    if(Object.keys(marks).length < objs.length){
+      actionEl.innerHTML = `<p class="step-desc">すべてのデータについて、到達可能かゴミかを選ぼう。</p>`;
+      return;
+    }
+    actionEl.innerHTML = `<button class="btn btn-primary" id="btn-check">判定する</button>`;
+    qs('#btn-check', actionEl).addEventListener('click', checkAnswers);
+  }
+
+  function checkAnswers(){
+    let allCorrect = true;
+    const grid = qs('#gc-grid', root);
+    objs.forEach(o=>{
+      const card = grid.querySelector(`.gc-card[data-id="${o.id}"]`);
+      const guess = marks[o.id];
+      const correctV = o.garbage ? 'garbage' : 'reachable';
+      card.classList.remove('right','wrong');
+      const hint = card.querySelector('.gc-hint');
+      if(hint) hint.remove();
+      if(guess === correctV){
+        card.classList.add('right');
+      } else {
+        allCorrect = false;
+        card.classList.add('wrong');
+        const p = document.createElement('div');
+        p.className = 'gc-hint';
+        p.textContent = `正解: ${correctV === 'garbage' ? 'ゴミ(未到達)' : '到達可能'}`;
+        card.appendChild(p);
+        delete marks[o.id];
+      }
+    });
+    if(allCorrect){
+      locked = true;
+      qs('#gc-action', root).innerHTML = `<button class="btn btn-primary" id="btn-gc">🗑 GCを実行する</button>`;
+      qs('#btn-gc', root).addEventListener('click', runGC);
+    } else {
+      qs('#gc-action', root).innerHTML = `<p class="step-desc">赤いカードは判定が違います。カードのボタンを押して選び直そう。</p>`;
+    }
+  }
+
+  function runGC(){
+    const grid = qs('#gc-grid', root);
+    objs.filter(o=>o.garbage).forEach(o=>{
+      const card = grid.querySelector(`.gc-card[data-id="${o.id}"]`);
+      card.classList.add('sweeping');
+    });
+    qs('#gc-action', root).innerHTML = '';
+    setTimeout(()=>{
+      const note = document.createElement('div');
+      note.className = 'mission-box';
+      note.style.marginTop = '14px';
+      note.innerHTML = `<div class="mission-label">✅ GC完了</div><div class="mission-text">objD と objE はどこからも参照されていなかったため回収されました。到達可能な objA・objB・objC はそのまま残っています。</div>`;
+      qs('#gc-action', root).appendChild(note);
+      ctx.complete();
+    }, 650);
+  }
+
+  renderGrid();
+  renderAction();
+}
+
+/* ---------- boot ---------- */
+loadProgress();
+mountStage(Math.min(state.currentIndex, state.unlocked - 1));
+</script>
+</body>
+</html>
