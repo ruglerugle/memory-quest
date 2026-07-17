@@ -210,6 +210,21 @@ body{font-family:var(--f);color:var(--ink);font-weight:600;min-height:100vh;
 @keyframes sweep{to{opacity:0;transform:scale(.7)}}
 .gc-hint{font-size:11px;color:var(--ng);margin-top:4px;font-weight:800}
 
+/* ===== Stage7: CPU & Registers ===== */
+.cpu-stage{display:flex;flex-direction:column;gap:14px;margin-bottom:14px}
+.cpu-panel{background:#fff;border:1.5px solid var(--line);border-radius:10px;padding:12px}
+.cpu-panel h4{font-size:12px;color:var(--muted);margin-bottom:8px}
+.reg-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.reg-cell{flex:1;min-width:80px;background:linear-gradient(180deg,#fbecea,#f3d4d0);border:1.5px solid #c0392b;border-radius:8px;padding:10px;text-align:center}
+.reg-name{font-family:var(--m);font-size:11px;color:#8a2f22;font-weight:900}
+.reg-val{font-family:var(--m);font-size:18px;font-weight:900;color:#5c1a10;margin-top:4px}
+.reg-cell.flash{animation:regFlash .6s}
+@keyframes regFlash{0%{box-shadow:0 0 0 0 rgba(192,57,43,.55)}100%{box-shadow:0 0 0 14px rgba(192,57,43,0)}}
+.alu-box{background:linear-gradient(180deg,#fff6e0,#ffe6a8);border:1.5px solid #c98b1f;border-radius:8px;padding:12px;text-align:center;
+  font-weight:900;color:#7a5209;font-family:var(--m);font-size:13px;transition:transform .2s,box-shadow .2s}
+.alu-box.active{transform:scale(1.04);box-shadow:0 0 0 5px rgba(201,139,31,.3)}
+.cpu-flow-note{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.6}
+
 /* Ending */
 .ending{text-align:center;padding:30px 10px}
 .ending h2{font-size:24px;color:#241a3d;margin-bottom:12px}
@@ -303,11 +318,23 @@ const STAGES = [
     key:'gc', title:'ガベージコレクション', sub:'自動お片付け',
     missionText:'どのデータが「もう参照されていないゴミ」かを見分けて、GCを実行しよう。',
     dialogue:[
-      {who:'hakase', text:'最後に、ガベージコレクション、略してGCじゃ。'},
+      {who:'hakase', text:'ここでの仕上げとして、ガベージコレクション、略してGCじゃ。'},
       {who:'mirai', text:'さっきのメモリリーク……自動で防いでくれる仕組みですか？'},
       {who:'hakase', text:'その通り！どこからも参照されなくなったデータを自動で見つけて、解放してくれる仕組みじゃ。まずは、どのデータが「誰からも参照されていないゴミ」か見分けてみよう。'},
     ],
     build: buildGC,
+  },
+  {
+    key:'cpu', title:'CPUとレジスタ', sub:'読み込み・演算・書き込み',
+    missionText:'RAMの値をレジスタに読み込み(LOAD)、演算し(ADD)、結果をRAMに書き戻す(STORE)という流れを体験しよう。',
+    dialogue:[
+      {who:'hakase', text:'ここまで、RAMの中にデータがどう置かれるかを見てきたのう。最後に、CPU自身がそのデータをどうやって読み書きしているのかを見てみよう。'},
+      {who:'mirai', text:'CPUは、RAMの中身を直接計算したりはしないんですか？'},
+      {who:'hakase', text:'できないんじゃ。CPUが計算に使えるのは、自分の中にある「レジスタ」という、ごく少数の小さな記憶場所だけ。だから①RAMの値をレジスタに読み込む(LOAD)、②レジスタ同士で計算する、③結果をレジスタからRAMへ書き戻す(STORE)、という3段階が必要になる。'},
+      {who:'mirai', text:'読み込んで、計算して、書き込む……なるほど。'},
+      {who:'hakase', text:'その通り。実際にこの3段階を、順番に体験してみよう。'},
+    ],
+    build: buildCpu,
   },
 ];
 
@@ -468,14 +495,15 @@ function showEnding(){
   main.innerHTML = `
     <div class="ending">
       <h2>🎉 メモリークエスト・クリア！</h2>
-      <p>RAM・スタック・ヒープ・ポインタ・メモリリーク・ガベージコレクション。<br>王国の記憶管理士として、メモリの仕組みをひと通り体験できたね。</p>
+      <p>RAM・スタック・ヒープ・ポインタ・メモリリーク・ガベージコレクション・CPUとレジスタ。<br>王国の記憶管理士として、メモリの仕組みをひと通り体験できたね。</p>
       <div class="ending-list">
         ✅ RAM = 番地付きの箱の集まり<br>
         ✅ スタック = LIFOで積み上がる領域<br>
         ✅ ヒープ = 自由確保・断片化が起きる領域<br>
         ✅ ポインタ = 実体ではなく「住所」を持つ変数<br>
         ✅ メモリリーク = 解放し忘れて溜まり続けること<br>
-        ✅ GC = 参照されなくなったデータの自動回収
+        ✅ GC = 参照されなくなったデータの自動回収<br>
+        ✅ CPU = レジスタに読み込み(LOAD)・演算し・書き戻す(STORE)
       </div>
       <button class="btn btn-primary" id="btn-replay">↺ はじめから遊びなおす</button>
     </div>
@@ -1104,6 +1132,143 @@ objD → objE
 
   renderGrid();
   renderAction();
+}
+
+/* =====================================================================
+   Stage 7: CPU & Registers ― LOAD / ADD / STORE
+   ===================================================================== */
+function buildCpu(root, ctx){
+  const ram = [12, 7, 5, 9, 2, 3, 8, 0]; // addr 0x00-0x07 (decimal values for easy arithmetic)
+  const regs = {R1:null, R2:null, R3:null};
+
+  const steps = [
+    {kind:'load', label:'LOAD R1 ← [0x02] を実行しよう。RAMの0x02番地の値を読み込み、レジスタR1に保存する。', addr:2, reg:'R1', btn:'LOAD R1 ← [0x02] を実行'},
+    {kind:'load', label:'LOAD R2 ← [0x05] を実行しよう。RAMの0x05番地の値を読み込み、レジスタR2に保存する。', addr:5, reg:'R2', btn:'LOAD R2 ← [0x05] を実行'},
+    {kind:'quiz', label:'2つのLOADを実行したいま、RAMの0x02番地の値はどうなっているでしょう？',
+      options:[
+        {t:'読み込む前と変わらず残っている（LOADはコピー）', ok:true},
+        {t:'空っぽになった（値が移動した）', ok:false},
+        {t:'R1の値に書き換わった', ok:false},
+      ]},
+    {kind:'add', label:'ADD R3 ← R1 + R2 を実行しよう。CPU内のALU（演算装置）がレジスタ同士を計算する。', btn:'ADD R3 ← R1 + R2 を実行'},
+    {kind:'quiz', label:'ADDを実行した直後、計算結果はどこに保存されているでしょう？',
+      options:[
+        {t:'レジスタR3の中', ok:true},
+        {t:'RAMの0x02番地', ok:false},
+        {t:'まだどこにも保存されていない', ok:false},
+      ]},
+    {kind:'store', label:'STORE [0x07] ← R3 を実行しよう。R3の値をRAMの0x07番地に書き込む。', addr:7, reg:'R3', btn:'STORE [0x07] ← R3 を実行'},
+    {kind:'quiz', label:'STOREを実行する前、RAMの0x07番地の値はどうだったでしょう？',
+      options:[
+        {t:'計算結果とは違う、もともとの値が入っていた', ok:true},
+        {t:'すでに計算結果と同じ値が入っていた', ok:false},
+        {t:'そもそも番地自体が存在しなかった', ok:false},
+      ]},
+  ];
+  let stepIndex = 0;
+
+  root.innerHTML = `
+    <div class="cpu-stage">
+      <div class="cpu-panel">
+        <h4>RAM</h4>
+        <div class="mem-grid" id="cpu-ram-grid"></div>
+      </div>
+      <div class="cpu-panel">
+        <h4>CPU（レジスタとALU）</h4>
+        <div class="reg-row" id="reg-row"></div>
+        <div class="alu-box" id="alu-box">🧮 ALU（演算装置）</div>
+        <p class="cpu-flow-note">CPUが計算に使えるのは、この数個のレジスタだけ。RAMの値を直接計算することはできない。</p>
+      </div>
+    </div>
+    <p class="step-desc" id="step-desc"></p>
+    <div id="step-action"></div>
+  `;
+
+  function renderRam(flashAddr, flashCls){
+    const grid = qs('#cpu-ram-grid', root);
+    grid.innerHTML = '';
+    ram.forEach((val, addr)=>{
+      const d = document.createElement('div');
+      d.className = 'mem-cell' + (addr === flashAddr ? ` ${flashCls}` : '');
+      d.innerHTML = `<span class="mem-addr">0x${addr.toString(16).toUpperCase().padStart(2,'0')}</span><span class="mem-val">${val}</span>`;
+      grid.appendChild(d);
+    });
+  }
+
+  function renderRegs(flashReg){
+    const row = qs('#reg-row', root);
+    row.innerHTML = '';
+    Object.keys(regs).forEach(name=>{
+      const d = document.createElement('div');
+      d.className = 'reg-cell' + (name === flashReg ? ' flash' : '');
+      d.innerHTML = `<div class="reg-name">${name}</div><div class="reg-val">${regs[name] === null ? '—' : regs[name]}</div>`;
+      row.appendChild(d);
+    });
+  }
+
+  function flashAlu(){
+    const alu = qs('#alu-box', root);
+    alu.classList.add('active');
+    setTimeout(()=> alu.classList.remove('active'), 500);
+  }
+
+  function showStep(){
+    const step = steps[stepIndex];
+    qs('#step-desc', root).textContent = step.label || '';
+    const actionEl = qs('#step-action', root);
+
+    if(step.kind === 'quiz'){
+      const opts = shuffle(step.options);
+      actionEl.innerHTML = `<div class="choice-list">${opts.map(o=>`<button class="choice-btn" data-ok="${o.ok}">${o.t}</button>`).join('')}</div>`;
+      actionEl.querySelectorAll('.choice-btn').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          if(btn.dataset.ok === 'true'){
+            btn.classList.add('choice-ok');
+            setTimeout(advance, 500);
+          } else {
+            btn.classList.add('choice-ng');
+            setTimeout(()=>btn.classList.remove('choice-ng'), 400);
+          }
+        });
+      });
+      return;
+    }
+
+    actionEl.innerHTML = `<button class="btn btn-primary" id="btn-do">${step.btn}</button>`;
+    qs('#btn-do', actionEl).addEventListener('click', ()=>{
+      if(step.kind === 'load'){
+        regs[step.reg] = ram[step.addr];
+        renderRam(step.addr, 'flash-ok');
+        renderRegs(step.reg);
+        advance();
+      } else if(step.kind === 'add'){
+        regs.R3 = regs.R1 + regs.R2;
+        flashAlu();
+        renderRegs('R3');
+        advance();
+      } else if(step.kind === 'store'){
+        ram[step.addr] = regs[step.reg];
+        renderRam(step.addr, 'flash-ok');
+        renderRegs(step.reg);
+        advance();
+      }
+    });
+  }
+
+  function advance(){
+    stepIndex++;
+    if(stepIndex >= steps.length){
+      qs('#step-desc', root).textContent = '🎉 LOAD→演算→STOREの流れを体験できたね。CPUは常にこの3段階でRAMとやり取りしておるんじゃ。';
+      qs('#step-action', root).innerHTML = '';
+      ctx.complete();
+      return;
+    }
+    showStep();
+  }
+
+  renderRam();
+  renderRegs();
+  showStep();
 }
 
 /* ---------- boot ---------- */
