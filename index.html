@@ -282,6 +282,15 @@ body{font-family:var(--f);color:var(--ink);font-weight:600;min-height:100vh;
 .vmem-arrow{text-align:center;font-size:18px;color:var(--muted);margin:6px 0}
 .vmem-arrow.active{color:var(--ptr);animation:regFlash .6s}
 
+/* ===== Book recommendation ===== */
+.book-box{display:flex;gap:12px;align-items:center;background:linear-gradient(180deg,#f3eefb,#ece2f8);
+  border:1px solid #d6c7f0;border-radius:10px;padding:12px 14px;margin-top:18px}
+.book-cover{width:56px;height:auto;border-radius:4px;box-shadow:0 2px 6px rgba(0,0,0,.25);flex-shrink:0}
+.book-info{min-width:0}
+.book-label{font-size:11px;font-weight:900;color:#5b45b8;margin-bottom:3px}
+.book-title{font-size:12.5px;font-weight:700;color:#3a2c5c;line-height:1.5}
+.book-title a{color:inherit;text-decoration:underline}
+
 /* Ending */
 .ending{text-align:center;padding:30px 10px}
 .ending h2{font-size:24px;color:#241a3d;margin-bottom:12px}
@@ -315,6 +324,39 @@ body{font-family:var(--f);color:var(--ink);font-weight:600;min-height:100vh;
 <script>
 'use strict';
 
+const BOOKS = {
+  howComputerWorks: {
+    title: '矢沢久雄『コンピュータはなぜ動くのか 第2版』(日経BP)',
+    url: 'https://www.amazon.co.jp/dp/429600123X?tag=senjin-22',
+    cover: 'https://m.media-amazon.com/images/I/81pK80wyg+L._SY342_.jpg',
+  },
+  pointerMastery: {
+    title: '前橋和弥『新・標準プログラマーズライブラリ C言語 ポインタ完全制覇』(技術評論社)',
+    url: 'https://www.amazon.co.jp/dp/477419381X?tag=senjin-22',
+    cover: 'https://m.media-amazon.com/images/I/61+3Z4s+O-L._SY342_.jpg',
+  },
+  gcAlgorithms: {
+    title: '中村成洋・相川光『ガベージコレクションのアルゴリズムと実装』(秀和システム)',
+    url: 'https://www.amazon.co.jp/dp/4798025623?tag=senjin-22',
+    cover: 'https://m.media-amazon.com/images/I/51ihQN2UlbL._SY342_.jpg',
+  },
+  codUpper: {
+    title: 'パターソン&ヘネシー『コンピュータの構成と設計 第5版(上)』(日経BP)',
+    url: 'https://www.amazon.co.jp/dp/4822298426?tag=senjin-22',
+    cover: 'https://m.media-amazon.com/images/I/81HsbO-nQuL._SY342_.jpg',
+  },
+  codLower: {
+    title: 'パターソン&ヘネシー『コンピュータの構成と設計 第5版(下)』(日経BP)',
+    url: 'https://www.amazon.co.jp/dp/4822298434?tag=senjin-22',
+    cover: 'https://m.media-amazon.com/images/I/81uJfeNTsML._SY342_.jpg',
+  },
+  linuxMechanism: {
+    title: '武内覚『[試して理解]Linuxのしくみ 増補改訂版』(技術評論社)',
+    url: 'https://www.amazon.co.jp/dp/429713148X?tag=senjin-22',
+    cover: 'https://m.media-amazon.com/images/I/81apzDpO+0L._SY342_.jpg',
+  },
+};
+
 const STAGES = [
   {
     key:'ram', title:'RAMの基本', sub:'番地というしくみ',
@@ -327,6 +369,7 @@ const STAGES = [
       {who:'hakase', text:'この先の章で「スタック」や「ヒープ」という言葉が出てくるが、それらは別の記憶装置ではない。すべて今見たこの1本のRAMの中の、使い方の違う「区画」にすぎないんじゃよ。'},
     ],
     build: buildRam,
+    book: BOOKS.howComputerWorks,
   },
   {
     key:'stack', title:'スタック領域', sub:'後入れ先出し(LIFO)',
@@ -339,6 +382,7 @@ const STAGES = [
       {who:'hakase', text:'注意してほしいのは、このスタックも第1章で見たRAMの箱の続きだということじゃ。次のヒープの章も、実は同じRAMの反対側を使っておる。'},
     ],
     build: buildStack,
+    book: BOOKS.pointerMastery,
   },
   {
     key:'heap', title:'ヒープ領域', sub:'自由な確保と断片化',
@@ -350,6 +394,7 @@ const STAGES = [
       {who:'hakase', text:'便利な反面、確保・解放を繰り返すと、あちこちに「隙間」ができてしまう。これを断片化と呼ぶんじゃ。実際に体験してみよう。'},
     ],
     build: buildHeap,
+    book: BOOKS.pointerMastery,
   },
   {
     key:'pointer', title:'ポインタと参照', sub:'住所を指し示す',
@@ -360,6 +405,7 @@ const STAGES = [
       {who:'hakase', text:'そうじゃ。スタック上の変数がヒープ上のデータの番地を持っていれば、いつでもそこへたどり着ける。実際につないで確かめてみよう。'},
     ],
     build: buildPointer,
+    book: BOOKS.pointerMastery,
   },
   {
     key:'leak', title:'メモリリーク', sub:'解放し忘れの恐怖',
@@ -370,6 +416,7 @@ const STAGES = [
       {who:'hakase', text:'使われないメモリがどんどん溜まっていき、やがてメモリが尽きてしまう。これが「メモリリーク」じゃ。実際に確かめてみよう。'},
     ],
     build: buildLeak,
+    book: BOOKS.pointerMastery,
   },
   {
     key:'gc', title:'ガベージコレクション', sub:'自動お片付け',
@@ -380,6 +427,7 @@ const STAGES = [
       {who:'hakase', text:'その通り！どこからも参照されなくなったデータを自動で見つけて、解放してくれる仕組みじゃ。まずは、どのデータが「誰からも参照されていないゴミ」か見分けてみよう。'},
     ],
     build: buildGC,
+    book: BOOKS.gcAlgorithms,
   },
   {
     key:'cpu', title:'CPUとレジスタ', sub:'読み込み・演算・書き込み',
@@ -392,6 +440,7 @@ const STAGES = [
       {who:'hakase', text:'その通り。実際にこの3段階を、順番に体験してみよう。'},
     ],
     build: buildCpu,
+    book: BOOKS.codUpper,
   },
   {
     key:'cache', title:'CPUキャッシュ', sub:'ヒット・ミスと局所性',
@@ -404,6 +453,7 @@ const STAGES = [
       {who:'hakase', text:'その通り。実際にアクセスを繰り返して、HITとMISSを体験してみよう。'},
     ],
     build: buildCache,
+    book: BOOKS.codLower,
   },
   {
     key:'layout', title:'メモリレイアウト全体像', sub:'コード・データ・ヒープ・スタック',
@@ -420,6 +470,7 @@ const STAGES = [
       {who:'hakase', text:'その通り。malloc/newで確保するデータは、確保するサイズも、いつ解放されるか（あるいはされないか）も実行してみるまで分からん。だからコンパイラは前もって計算できず、実行時にヒープ管理の仕組みへ「貸してくれ」と頼むしかないんじゃ。この基準で、実際に見分けてみよう。'},
     ],
     build: buildLayout,
+    book: BOOKS.linuxMechanism,
   },
   {
     key:'bugs', title:'典型的なメモリバグ', sub:'ダングリングポインタ・オーバーフロー',
@@ -430,6 +481,7 @@ const STAGES = [
       {who:'hakase', text:'その通り。仕組みを知っていれば、なぜそのバグが起きるのかが分かるようになる。順番に体験してみよう。'},
     ],
     build: buildBugs,
+    book: BOOKS.pointerMastery,
   },
   {
     key:'vmem', title:'仮想メモリ', sub:'アドレス変換とプロセスの隔離',
@@ -442,6 +494,7 @@ const STAGES = [
       {who:'hakase', text:'ぶつからんのじゃ。プログラムごとに別々のページテーブルを持っているから、同じ仮想アドレスでも変換先の物理アドレスは別々になる。これが、プログラム同士のメモリを守る「隔離」の仕組みじゃ。実際に確かめてみよう。'},
     ],
     build: buildVMem,
+    book: BOOKS.linuxMechanism,
   },
 ];
 
@@ -547,6 +600,21 @@ function renderDialogue(lines){
   }).join('');
 }
 
+function renderBookHTML(book){
+  if(!book) return '';
+  return `
+    <div class="book-box">
+      <a href="${book.url}" target="_blank" rel="sponsored noopener">
+        <img src="${book.cover}" alt="${book.title}" class="book-cover">
+      </a>
+      <div class="book-info">
+        <div class="book-label">📚 参考文献</div>
+        <div class="book-title"><a href="${book.url}" target="_blank" rel="sponsored noopener">${book.title}</a></div>
+      </div>
+    </div>
+  `;
+}
+
 /* ---------- stage mount / navigation ---------- */
 function mountStage(index){
   state.currentIndex = index;
@@ -570,6 +638,7 @@ function mountStage(index){
         ${index === STAGES.length-1 ? 'クリア画面へ ▶' : 'つぎのステージへ ▶'}
       </button>
     </div>
+    ${renderBookHTML(meta.book)}
   `;
   if(state.cleared.has(index)) qs('#mission-status').classList.add('ok');
 
