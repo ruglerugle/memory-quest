@@ -341,6 +341,11 @@ a.head-reset{text-decoration:none;display:inline-flex;align-items:center}
 .ending h2{font-size:24px;color:#241a3d;margin-bottom:12px}
 .ending p{font-size:14px;color:var(--muted);line-height:1.8;max-width:520px;margin:0 auto 8px}
 .ending-list{text-align:left;max-width:460px;margin:16px auto;font-size:13px;line-height:2;color:#3a2c5c;font-weight:700}
+
+/* ===== クリア画面のリンク ===== */
+.ending-links{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+.ending-link{display:inline-block;padding:10px 18px;border-radius:9px;font-weight:900;font-size:14px;text-decoration:none;border:1px solid var(--line);background:var(--paper2);color:var(--ink)}
+.ending-link.share{background:#111;border-color:#222;color:#fff}
 </style>
 </head>
 <body>
@@ -737,6 +742,11 @@ function showEnding(){
         ✅ 仮想メモリ = ページテーブルによるアドレス変換とプロセスの隔離
       </div>
       <button class="btn btn-primary" id="btn-replay">↺ はじめから遊びなおす</button>
+      <div class="ending-links">
+        <a class="ending-link share" href="https://x.com/intent/post?text=${encodeURIComponent('MEMORY QUEST 全11章クリア！🎉 RAM・スタック・ヒープから仮想メモリまでゲームで学べる無料学習ゲーム')}&url=${encodeURIComponent('https://informatics.habatakijuku.com/memory-quest/')}" target="_blank" rel="noopener">𝕏 クリアを報告する</a>
+        <a class="ending-link" href="/c-pointer-dojo/">🥋 次はC言語で実践 ― C POINTER DOJO</a>
+        <a class="ending-link" href="/">🧭 他のクエストも遊ぶ</a>
+      </div>
     </div>
   `;
   qs('#btn-replay').addEventListener('click', ()=>{
