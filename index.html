@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MEMORY QUEST ― ゲームで学ぶメモリの仕組み（王国の記憶管理士）</title>
+<title>メモリのしくみクエスト ― RAM・スタック・ヒープをゲームで学ぶ（王国の記憶管理士）</title>
 <meta name="description" content="RAM・スタック・ヒープ・ガベージコレクション・CPUキャッシュ・仮想メモリまで、プログラムとメモリの関係を全11章で体験しながら学べる無料学習ゲーム。ブラウザだけで遊べます。">
 <link rel="canonical" href="https://informatics.habatakijuku.com/memory-quest/">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="MEMORY QUEST">
+<meta property="og:site_name" content="メモリのしくみクエスト">
 <meta property="og:locale" content="ja_JP">
-<meta property="og:title" content="MEMORY QUEST ― ゲームで学ぶメモリの仕組み（王国の記憶管理士）">
+<meta property="og:title" content="メモリのしくみクエスト ― RAM・スタック・ヒープをゲームで学ぶ（王国の記憶管理士）">
 <meta property="og:description" content="RAM・スタック・ヒープから仮想メモリまで、メモリの仕組みを体験して学べる無料学習ゲーム。">
 <meta property="og:url" content="https://informatics.habatakijuku.com/memory-quest/">
 <meta property="og:image" content="https://informatics.habatakijuku.com/images/ogp/memory-quest.png">
@@ -21,7 +21,8 @@
 {
   "@context": "https://schema.org",
   "@type": "LearningResource",
-  "name": "MEMORY QUEST ― 王国の記憶管理士 ―",
+  "name": "メモリのしくみクエスト ― 王国の記憶管理士 ―",
+  "alternateName": "MEMORY QUEST",
   "description": "RAM・スタック・ヒープ・ガベージコレクション・CPUキャッシュ・仮想メモリまで、プログラムとメモリの関係を全11章で体験しながら学べる無料学習ゲーム。",
   "url": "https://informatics.habatakijuku.com/memory-quest/",
   "inLanguage": "ja",
@@ -352,7 +353,7 @@ a.head-reset{text-decoration:none;display:inline-flex;align-items:center}
 <div class="app-shell">
   <header class="game-header">
     <div class="brand">
-      <h1 class="brand-title">MEMORY QUEST</h1>
+      <h1 class="brand-title">メモリのしくみクエスト</h1>
       <div class="brand-sub">― 王国の記憶管理士 ―</div>
     </div>
     <div class="head-progress-wrap">
@@ -726,7 +727,7 @@ function showEnding(){
   const main = qs('#main-area');
   main.innerHTML = `
     <div class="ending">
-      <h2>🎉 メモリークエスト・クリア！</h2>
+      <h2>🎉 メモリのしくみクエスト・クリア！</h2>
       <p>RAM・スタック・ヒープ・ポインタ・メモリリーク・ガベージコレクション・CPUとレジスタ・キャッシュ・メモリレイアウト・典型的なバグ・仮想メモリ。<br>王国の記憶管理士として、メモリの仕組みをひと通り体験できたね。</p>
       <div class="ending-list">
         ✅ RAM = 番地付きの箱の集まり<br>
@@ -743,8 +744,8 @@ function showEnding(){
       </div>
       <button class="btn btn-primary" id="btn-replay">↺ はじめから遊びなおす</button>
       <div class="ending-links">
-        <a class="ending-link share" href="https://x.com/intent/post?text=${encodeURIComponent('MEMORY QUEST 全11章クリア！🎉 RAM・スタック・ヒープから仮想メモリまでゲームで学べる無料学習ゲーム')}&url=${encodeURIComponent('https://informatics.habatakijuku.com/memory-quest/')}" target="_blank" rel="noopener">𝕏 クリアを報告する</a>
-        <a class="ending-link" href="/c-pointer-dojo/">🥋 次はC言語で実践 ― C POINTER DOJO</a>
+        <a class="ending-link share" href="https://x.com/intent/post?text=${encodeURIComponent('メモリのしくみクエスト 全11章クリア！🎉 RAM・スタック・ヒープから仮想メモリまでゲームで学べる無料学習ゲーム')}&url=${encodeURIComponent('https://informatics.habatakijuku.com/memory-quest/')}" target="_blank" rel="noopener">𝕏 クリアを報告する</a>
+        <a class="ending-link" href="/c-pointer-dojo/">🥋 次はC言語で実践 ― C言語ポインタ道場</a>
         <a class="ending-link" href="/">🧭 他のクエストも遊ぶ</a>
       </div>
     </div>
