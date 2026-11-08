@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#241a40">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-9RTQCP2HXM"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-9RTQCP2HXM');
+</script>
+<title>STAGE7 メモリリークとGC ― メモリのしくみクエスト</title>
+<meta name="description" content="借りたヒープを返し忘れると、だれもたどれない場所がたまっていく（メモリリーク）。それを自動で片付けるガベージコレクション（GC）は、変数からたどれるものに印を付け、印の無いものを片付ける。参照の数を数えるやり方と、お互いを指し合う輪で起きる問題も確かめる。">
+<link rel="canonical" href="https://informatics.habatakijuku.com/memory-quest/stage7">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="メモリのしくみクエスト">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:title" content="STAGE7 メモリリークとGC ― メモリのしくみクエスト">
+<meta property="og:description" content="返し忘れと自動の片付け。メモリリークとガベージコレクション。">
+<meta property="og:url" content="https://informatics.habatakijuku.com/memory-quest/stage7">
+<meta property="og:image" content="https://informatics.habatakijuku.com/images/ogp/memory-quest.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧠</text></svg>">
+<link rel="stylesheet" href="design-system.css?v=20261108b">
+<link rel="stylesheet" href="lab.css?v=20261108b">
+<script src="js/stages.js?v=20261108b"></script>
+<script src="js/progress.js?v=20261108b"></script>
+<script src="js/labs.js?v=20261108b"></script>
+</head>
+<body>
+<div class="app-shell side-collapsed" id="app-shell">
+  <header class="game-header">
+    <div class="brand">
+      <div class="brand-title"><a class="head-reset home-badge" href="./" title="トップへ" aria-label="トップへ">🧠</a> <span>メモリのしくみクエスト</span></div>
+      <div class="brand-sub">STAGE 7 ― メモリリークとGC ―</div>
+    </div>
+    <div class="head-progress-wrap">
+      <div class="head-progress-label" id="progress-label">クリア 0 / 10</div>
+      <div class="head-progress" role="progressbar" aria-label="クリア済みステージ数" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"><div class="head-progress-fill" id="progress-fill" style="width:0%"></div></div>
+    </div>
+    <div class="header-actions">
+      <a class="head-reset" href="/" title="情報の冒険（シリーズの地図）へ">🧭 地図</a>
+      <button class="head-reset" id="btn-reset-all">🔄 最初から</button>
+      <button class="head-reset" id="head-nav-toggle" title="ステージ一覧の表示切替">☰ ナビ</button>
+    </div>
+  </header>
+
+  <div class="game-layout">
+    <div class="side-backdrop" id="side-backdrop"></div>
+    <aside class="side-panel">
+      <div class="side-head">
+        <button class="side-toggle" id="sidebar-toggle" title="ステージ一覧の表示切替" aria-label="ステージ一覧の表示切替">☰</button>
+        <span class="side-head-text">📚 ステージ一覧</span>
+      </div>
+      <div class="side-list" id="side-list"></div>
+    </aside>
+
+    <main class="main-area">
+      <div class="chapter-head">
+        <span class="chapter-badge">STAGE 7</span><h1 class="chapter-title">メモリリークとGC</h1>
+        <div class="chapter-sub">返し忘れと自動の片付け</div>
+      </div>
+
+      <div class="mission-box">
+        <div class="mission-label">🎯 ミッション</div>
+        <div class="mission-text">メモリリークが起きる理由と、GC が「何を片付けてよいか」を判断する方法を説明できるようになろう。マーク＆スイープで片付けを最後まで行い、確認クイズに全問正解すれば合格。</div>
+        <span class="mission-status" id="mission-status">未達成</span>
+      </div>
+
+      <div class="dialogue-scene">
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">前のステージの最後の問題からだ。ヒープから借りた場所の番地を、うっかり忘れてしまったらどうなるか。たとえば、ある関数の中で <code>p = malloc(1000);</code> と借りて、free せずに関数が終わったとする。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbitThink.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble"> p はローカル変数だから、関数が終わるとスタックの板ごと消える。でも借りた1000バイトはヒープに残ったまま。番地を覚えているものがもう無いので、だれも返せない。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そう。返されない場所は、プログラムが終わるまで使えないまま残る。これを<strong>メモリリーク</strong>（メモリの漏れ）と呼ぶ。1回なら1000バイトだけれど、その関数が1秒に100回呼ばれたら？</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">1秒で10万バイト、1時間で……3億6千万バイト、360MB です。何日も動き続けるサーバーなら、いつかメモリを使い切ります。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">だから、長く動き続けるプログラムほど、リークは深刻になる。C言語では、借りたものは必ず自分で free する、という約束を守るしかない。でも、人間は忘れるし、「この場所をまだ誰かが使っているか」の判断は難しい。そこで、多くの言語（Java、Python、JavaScript、Go など）は、<strong>使われなくなったものを自動で片付ける係</strong>を持っている。これを<strong>ガベージコレクション</strong>（GC、ごみ集め）と呼ぶ。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">自動で片付けるには、「もう使われていない」ことを機械が判断しないといけませんよね。どうやって判断するんですか？</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">未来に使うかどうかは分からない。でも「<strong>もう使えない</strong>」ものなら分かる。プログラムが何かを使うには、どこかの変数から番地をたどって行き着く必要がある。どの変数からもたどり着けないものは、もう二度と使われようがない。</div>
+        </div>
+      </div>
+      <div class="formula-box">
+        <span class="step"><strong>ルート</strong>：たどり始める場所。いま動いている関数のローカル変数（スタック）や、関数の外の変数など</span>
+        <span class="step">ルートから番地（参照）を次々たどって行き着けるもの ＝ まだ使える ＝ 残す</span>
+        <span class="step">どこからもたどり着けないもの ＝ もう使えない ＝ 片付けてよい（ごみ）</span>
+      </div>
+      <div class="dialogue-scene">
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">この考えをそのまま手順にしたのが<strong>マーク＆スイープ</strong>だ。① ルートからたどれるものに順に印を付ける（マーク）。② 印の無いものを全部片付ける（スイープ＝掃く）。</div>
+        </div>
+      </div>
+      <div class="lab" data-lab="gc" data-id="mem-s7-gc"></div>
+      <div class="dialogue-scene">
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">もう1つ、別のやり方もある。それぞれのものに「いま何か所から指されているか」の数（<strong>参照の数</strong>）を持たせておき、0 になった瞬間に片付ける。これを<strong>参照カウント</strong>と呼ぶ。印を付けて回る手間がなく、要らなくなったらすぐ片付くのが長所だ。では、2つのもの P と Q がお互いを指し合っていて、ルートからはどちらもたどれなくなったとき、参照の数はどうなるかな。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbitThink.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble"> P は Q から、Q は P から指されているので、参照の数はどちらも 1 のまま。0 にならないから、いつまでも片付けられません。たどれないのに。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">その通り。お互いを指し合う<strong>輪</strong>（循環参照）は、参照カウントだけでは片付けられない。だから、参照カウントを使う言語（たとえば Python）も、ときどきマーク＆スイープのようなやり方で輪を探して片付ける仕組みを併せ持っている。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">GC があれば、もうリークは起きないんですか？</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">「どこからもたどれないもの」は片付けてくれる。でも、たとえば、使い終わったデータを大きな一覧に入れっぱなしにしていると、一覧からたどれてしまうので片付かない。GC は「もう使えないもの」は分かっても、「もう使うつもりがないもの」までは分からないんだ。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">GC に欠点はありますか？</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">片付けにも時間がかかる。印を付けて回るあいだ、プログラムを少し止めることがあって、ゲームなら一瞬カクッとする原因にもなる。そこで、止める時間を短く分けたり、作ったばかりのものだけを頻繁に調べたり（多くのものは作ってすぐ要らなくなるから）と、たくさんの工夫がされている。それから、Rust という言語のように、GC を使わずに「だれが片付ける係か」をプログラムの書き方の規則で決めて、翻訳の時点で間違いを見つける方法もある。</div>
+        </div>
+      </div>
+      <div class="formula-box">
+        <span class="step">手で返す（C言語）：速いが、返し忘れ（リーク）・返したあとに使う などの間違いが起こりうる</span>
+        <span class="step">GC（Java・Python など）：たどれないものを自動で片付ける。片付けの時間がかかる</span>
+        <span class="step">持ち主の規則（Rust）：片付ける係を翻訳時に確かめる。規則を守る書き方が必要</span>
+      </div>
+
+      <h2 class="quiz-head">確認クイズ</h2>
+      <div class="quiz-card" data-quiz>
+        <p class="quiz-q">Q1. メモリリークとは？</p>
+        <div class="choice-list">
+          <button class="choice-btn">借りたヒープの場所を返さないまま、番地も分からなくなり、使えない場所がたまっていくこと</button>
+          <button class="choice-btn">メモリの中身が、別のプログラムに読み取られてしまうこと</button>
+          <button class="choice-btn">スタックに板を積みすぎて、決められた大きさを超えること</button>
+        </div>
+        <div class="quiz-explain" hidden>正解！ 返されない場所はプログラムが終わるまで使えない。長く動くプログラムほど、少しずつメモリを食いつぶす。</div>
+      </div>
+      <div class="quiz-card" data-quiz>
+        <p class="quiz-q">Q2. マーク＆スイープの GC が「片付けてよい」と判断するものは？</p>
+        <div class="choice-list">
+          <button class="choice-btn">最後に使ってから一定の時間がたったもの</button>
+          <button class="choice-btn">大きさが一番大きいもの</button>
+          <button class="choice-btn">ルート（変数など）から参照をたどって行き着けないもの</button>
+        </div>
+        <div class="quiz-explain" hidden>正解！ たどり着けないものは二度と使われようがない。印の付かなかったものを片付ける。</div>
+      </div>
+      <div class="quiz-card" data-quiz>
+        <p class="quiz-q">Q3. 参照カウントだけでは片付けられないのは、どんな場合？</p>
+        <div class="choice-list">
+          <button class="choice-btn">1か所からしか指されていないもの</button>
+          <button class="choice-btn">お互いを指し合っていて、ルートからはたどれなくなった輪</button>
+          <button class="choice-btn">ルートから直接指されているもの</button>
+        </div>
+        <div class="quiz-explain" hidden>正解！ 輪の中では、お互いが指し合うので参照の数が 0 にならない。たどれるかどうかで判断するマーク＆スイープなら片付けられる。</div>
+      </div>
+
+      <div class="stage-nav">
+        <a class="btn" href="stage6.html">← 前のステージ</a>
+        <button class="btn btn-primary" id="btn-next" disabled>次へ →</button>
+      </div>
+
+      <div id="book-recommend"></div>
+    </main>
+  </div>
+</div>
+
+<script>QUEST.initStagePage(7);</script>
+
+<script src="https://my.habatakijuku.com/sync.js" defer></script>
+</body>
+</html>

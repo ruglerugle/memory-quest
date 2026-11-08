@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#241a40">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-9RTQCP2HXM"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-9RTQCP2HXM');
+</script>
+<title>STAGE3 キャッシュ ― メモリのしくみクエスト</title>
+<meta name="description" content="メモリは遅い。そこで CPU の中に、最近使ったデータの写しを置く小さく速い記憶＝キャッシュがある。1バイトではなく「ライン」単位でまとめて運ぶこと、同じ場所をまた使う・近くを使うという2つの「局所性」で当たりやすくなることを、読み方を変えて確かめる。">
+<link rel="canonical" href="https://informatics.habatakijuku.com/memory-quest/stage3">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="メモリのしくみクエスト">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:title" content="STAGE3 キャッシュ ― メモリのしくみクエスト">
+<meta property="og:description" content="近くに置いて速くする。キャッシュが当たる読み方、外れる読み方。">
+<meta property="og:url" content="https://informatics.habatakijuku.com/memory-quest/stage3">
+<meta property="og:image" content="https://informatics.habatakijuku.com/images/ogp/memory-quest.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧠</text></svg>">
+<link rel="stylesheet" href="design-system.css?v=20261108b">
+<link rel="stylesheet" href="lab.css?v=20261108b">
+<script src="js/stages.js?v=20261108b"></script>
+<script src="js/progress.js?v=20261108b"></script>
+<script src="js/labs.js?v=20261108b"></script>
+</head>
+<body>
+<div class="app-shell side-collapsed" id="app-shell">
+  <header class="game-header">
+    <div class="brand">
+      <div class="brand-title"><a class="head-reset home-badge" href="./" title="トップへ" aria-label="トップへ">🧠</a> <span>メモリのしくみクエスト</span></div>
+      <div class="brand-sub">STAGE 3 ― キャッシュ ―</div>
+    </div>
+    <div class="head-progress-wrap">
+      <div class="head-progress-label" id="progress-label">クリア 0 / 10</div>
+      <div class="head-progress" role="progressbar" aria-label="クリア済みステージ数" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"><div class="head-progress-fill" id="progress-fill" style="width:0%"></div></div>
+    </div>
+    <div class="header-actions">
+      <a class="head-reset" href="/" title="情報の冒険（シリーズの地図）へ">🧭 地図</a>
+      <button class="head-reset" id="btn-reset-all">🔄 最初から</button>
+      <button class="head-reset" id="head-nav-toggle" title="ステージ一覧の表示切替">☰ ナビ</button>
+    </div>
+  </header>
+
+  <div class="game-layout">
+    <div class="side-backdrop" id="side-backdrop"></div>
+    <aside class="side-panel">
+      <div class="side-head">
+        <button class="side-toggle" id="sidebar-toggle" title="ステージ一覧の表示切替" aria-label="ステージ一覧の表示切替">☰</button>
+        <span class="side-head-text">📚 ステージ一覧</span>
+      </div>
+      <div class="side-list" id="side-list"></div>
+    </aside>
+
+    <main class="main-area">
+      <div class="chapter-head">
+        <span class="chapter-badge">STAGE 3</span><h1 class="chapter-title">キャッシュ</h1>
+        <div class="chapter-sub">近くに置いて速くする</div>
+      </div>
+
+      <div class="mission-box">
+        <div class="mission-label">🎯 ミッション</div>
+        <div class="mission-text">キャッシュが当たる仕組み（ライン単位で運ぶ・2つの局所性）を説明できるようになろう。3つの読み方でキャッシュの当たり外れを確かめ、確認クイズに全問正解すれば合格。</div>
+        <span class="mission-status" id="mission-status">未達成</span>
+      </div>
+
+      <div class="dialogue-scene">
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">前のステージで、メモリから1つ読むのに約300拍も待つと分かった。この待ち時間を減らすために、CPU の中には、メモリの一部の<strong>写し</strong>を置いておく、小さくて速い記憶がある。これを<strong>キャッシュ</strong>と呼ぶ（cache は「隠し場所」という意味）。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">机の上に、よく使う本を何冊か置いておくようなものですね。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そう。CPU がある番地を読みたいとき、まずキャッシュを見る。そこに写しがあれば<strong>当たり</strong>（ヒット）で、数拍で読める。無ければ<strong>外れ</strong>（ミス）で、メモリまで取りに行き、ついでにキャッシュにも写しを置いておく。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">でもキャッシュは小さいんですよね。何を置いておくかは、どうやって決めるんですか？ 未来に何を読むかは分からないのに。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">いい質問だね。未来は分からないけれど、プログラムには<strong>よく当たる癖</strong>がある。2つあるよ。1つ目は、<strong>一度使った場所は、すぐにまた使うことが多い</strong>。くり返しの中で同じ変数を何度も足す、というように。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbitThink.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble"> だから、さっき使ったデータを残しておけば、また当たる。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そう。これを<strong>時間的局所性</strong>と呼ぶ（局所性＝使う場所が一部に偏ること）。2つ目は、<strong>ある場所を使ったら、その近くの番地もすぐに使うことが多い</strong>。配列を前から順に読むときがそうだね。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">配列は、番地が連続した箱に並んでいるから、1つ読んだら次は隣の番地ですね。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そう。これは<strong>空間的局所性</strong>と呼ぶ。そこでキャッシュは、外れたときに1バイトだけでなく、<strong>その周りの決まった大きさのかたまり</strong>をまとめて運んでくる。このかたまりを<strong>キャッシュライン</strong>と呼び、いまのパソコンではふつう64バイトだ。</div>
+        </div>
+      </div>
+      <div class="formula-box">
+        <span class="step">外れたとき：その番地を含む1ライン（例：64バイト）を丸ごとメモリから運び、キャッシュに置く</span>
+        <span class="step">時間的局所性：さっき使った場所をまた使う → 置いてある写しに当たる</span>
+        <span class="step">空間的局所性：近くの番地を続けて使う → 一緒に運んだラインに当たる</span>
+      </div>
+      <div class="dialogue-scene">
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">キャッシュがいっぱいになったら？</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">どれかを追い出して場所を空ける。よく使われるのは「いちばん長いあいだ使っていないラインを追い出す」やり方で、<strong>LRU</strong>（Least Recently Used）と呼ぶ。最近使ったものほどまた使う、という1つ目の癖に合わせた決め方だね。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">小さな例で数えてみよう。ラインを4バイト、キャッシュに置けるラインを4本とする。番地0から順に、1バイトずつ32バイト読むと、外れるのは何回かな。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbitThink.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble"> 番地0 で外れて、0〜3 の4バイトがまとめて運ばれる。だから 1〜3 は当たり。番地4 でまた外れて 4〜7 が運ばれる……。4バイトに1回外れるので、32 ÷ 4 ＝ 8回外れて、24回当たり。4回に3回は当たります。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">では、番地0, 4, 8, 12, … と、4バイトおきに16回読んだら？</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbitThink.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble"> 毎回、新しいラインの先頭を読むことになるので、16回とも外れです。せっかくまとめて運んだ残りの3バイトは、一度も使われない。同じ回数読んでも、順番だけで当たり方がまるで違いますね。</div>
+        </div>
+      </div>
+      <p class="lab-note">※ 模型では、ライン4バイト、キャッシュは4本、追い出しは LRU。</p>
+      <div class="lab" data-lab="cache" data-id="mem-s3-cache"></div>
+      <div class="dialogue-scene">
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そこが大事なところなんだ。プログラムの答えは同じでも、メモリを<strong>どの順番で</strong>読むかで速さが何倍も変わる。たとえば、縦横に並んだ表（2次元の配列）は、メモリの上では1行目、2行目……と横の並びが続けて置かれることが多い。それを縦向きに読むと、毎回別の行、つまり遠くの番地へ飛ぶことになる。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">行ごとに読めば空間的局所性が生きて、列ごとに読むと外れてばかりになる……。書き方のちょっとした違いで速さが変わるんですね。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">実際、大きな表で試すと、何倍もの差が出ることがある。キャッシュは CPU が勝手にやってくれるので、プログラムには1行も現れない。それでも、メモリの並び方を知っている人は、キャッシュに当たりやすい書き方ができる。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">キャッシュは1つだけですか？</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">いまの CPU は、小さく速い L1、少し大きい L2、さらに大きく複数のコアで共有する L3 と、何段かに分けて持っていることが多い。L1 で外れたら L2、L2 で外れたら L3、それでも外れたらメモリ、と順に探しに行くんだ。次のステージからは、プログラムのデータがメモリのどこに置かれるかの話に入ろう。まずは、関数を呼ぶたびに使われる場所、スタックだ。</div>
+        </div>
+      </div>
+
+      <h2 class="quiz-head">確認クイズ</h2>
+      <div class="quiz-card" data-quiz>
+        <p class="quiz-q">Q1. キャッシュが外れたとき、メモリから運んでくるのは？</p>
+        <div class="choice-list">
+          <button class="choice-btn">読みたかった1バイトだけ</button>
+          <button class="choice-btn">その番地を含む1ライン（ふつう64バイト）のかたまり</button>
+          <button class="choice-btn">メモリ全体</button>
+        </div>
+        <div class="quiz-explain" hidden>正解！ 近くもすぐ使われる（空間的局所性）ので、1ラインまとめて運ぶ。次に隣を読むときは当たりになる。</div>
+      </div>
+      <div class="quiz-card" data-quiz>
+        <p class="quiz-q">Q2. 「一度使った変数を、すぐにまた使う」ことが多い、という癖の名前は？</p>
+        <div class="choice-list">
+          <button class="choice-btn">時間的局所性</button>
+          <button class="choice-btn">空間的局所性</button>
+          <button class="choice-btn">LRU</button>
+        </div>
+        <div class="quiz-explain" hidden>正解！ 時間の面で偏る＝時間的局所性。近くの番地を続けて使うのが空間的局所性。LRU は追い出すラインの決め方。</div>
+      </div>
+      <div class="quiz-card" data-quiz>
+        <p class="quiz-q">Q3. 大きな2次元の表を、行の順に読むより列の順に読むほうが遅くなることがある理由は？</p>
+        <div class="choice-list">
+          <button class="choice-btn">列の順に読むと、計算の回数が増えるから</button>
+          <button class="choice-btn">列の順に読むと、メモリの中身が書き換わるから</button>
+          <button class="choice-btn">表は行ごとに続けて置かれていることが多く、列の順だと遠くの番地へ飛ぶのでキャッシュが外れやすいから</button>
+        </div>
+        <div class="quiz-explain" hidden>正解！ 計算回数は同じ。違うのは番地の飛び方。行の順なら一緒に運んだラインに当たり、列の順だと毎回別のラインが要る。</div>
+      </div>
+
+      <div class="stage-nav">
+        <a class="btn" href="stage2.html">← 前のステージ</a>
+        <button class="btn btn-primary" id="btn-next" disabled>次へ →</button>
+      </div>
+
+      <div id="book-recommend"></div>
+    </main>
+  </div>
+</div>
+
+<script>QUEST.initStagePage(3);</script>
+
+<script src="https://my.habatakijuku.com/sync.js" defer></script>
+</body>
+</html>

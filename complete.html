@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#241a40">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-9RTQCP2HXM"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-9RTQCP2HXM');
+</script>
+<title>全ステージクリア ― メモリのしくみクエスト</title>
+<meta name="description" content="プログラムの変数は、メモリのどこに、いつ置かれ、いつ片付けられるのか。番地・レジスタ・キャッシュ・スタック・ヒープ・ポインタ・メモリリークとGC・メモリの区画・メモリのバグ・仮想メモリまで、メモリの中を自分で動かしながら確かめる全10ステージの無料学習サイト。ねこ博士とうさ美が案内します。">
+<link rel="canonical" href="https://informatics.habatakijuku.com/memory-quest/complete">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="メモリのしくみクエスト">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:title" content="全ステージクリア ― メモリのしくみクエスト">
+<meta property="og:description" content="名前で書いた変数は、メモリのどこに置かれるのか。番地からスタック・ヒープ・GC・仮想メモリまで、全10ステージ。">
+<meta property="og:url" content="https://informatics.habatakijuku.com/memory-quest/complete">
+<meta property="og:image" content="https://informatics.habatakijuku.com/images/ogp/memory-quest.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧠</text></svg>">
+<link rel="stylesheet" href="design-system.css?v=20261108b">
+<meta name="robots" content="noindex">
+</head>
+<body>
+<div class="shell">
+  <nav class="topbar" aria-label="サイト情報">
+    <span class="brand-badge" aria-hidden="true">🧠</span>
+    <span class="brand-copy">
+      <strong>メモリのしくみクエスト</strong>
+      <small>MEMORY QUEST</small>
+    </span>
+    <a class="head-reset" style="margin-left:auto" href="/" title="情報の冒険（シリーズの地図）へ">🧭 シリーズの地図</a>
+  </nav>
+
+  <header class="hero">
+    <div class="hero-copy">
+      <h1><span class="line">変数の居場所、全部たどれた ∎</span></h1>
+      <p>名前で書いた変数が、どの区画の、どの番地の箱になるのか。関数を呼ぶとスタックに板が積まれ、malloc でヒープから借り、ポインタで番地をたどり、返し忘れればリーク、使ってはいけない番地を使えば乗っ取りの入口。そしてプログラムごとのページ表が、お互いのメモリを隔てている。旅の記録で振り返ろう。</p>
+    </div>
+  </header>
+
+  <main>
+    <section class="board" aria-labelledby="recap-heading">
+      <div class="board-head">
+        <div><h2 id="recap-heading">ここまでの旅を振り返ろう</h2></div>
+        <p>全10ステージ、おつかれさま</p>
+      </div>
+      <div class="recap-list">
+        <div class="recap-item">
+          <div class="recap-num">1</div>
+          <div class="recap-body">
+            <div class="recap-title">メモリと番地</div>
+            <div class="recap-desc">メモリは番地付きの1バイトの箱の列で、どの番地も同じ速さで開けられる（RAM）。番地は 0x を付けた16進数で書き、整数は4バイトの箱を並べて表す。電源を切ると消える。</div>
+          </div>
+        </div>
+        <div class="recap-item">
+          <div class="recap-num">2</div>
+          <div class="recap-body">
+            <div class="recap-title">CPUとレジスタ</div>
+            <div class="recap-desc">ALU につながるのはレジスタだけ。メモリの数は LOAD・計算・STORE で往復する。往復は約300拍で、計算そのものより待ち時間が長い（メモリの壁）。変数の番地はコンパイラが決める。</div>
+          </div>
+        </div>
+        <div class="recap-item">
+          <div class="recap-num">3</div>
+          <div class="recap-body">
+            <div class="recap-title">キャッシュ</div>
+            <div class="recap-desc">外れたらラインを丸ごと運ぶ。さっき使った場所（時間的局所性）と近くの番地（空間的局所性）が当たる。追い出しは LRU。同じ計算でも、読む順番で速さが何倍も変わる。</div>
+          </div>
+        </div>
+        <div class="recap-item">
+          <div class="recap-num">4</div>
+          <div class="recap-body">
+            <div class="recap-title">スタック</div>
+            <div class="recap-desc">関数を呼ぶとスタックフレーム（戻り先・引数のコピー・ローカル変数）が積まれ、return で丸ごと消える。積み下ろしはスタックポインタを動かすだけ。深く呼びすぎるとあふれる。</div>
+          </div>
+        </div>
+        <div class="recap-item">
+          <div class="recap-num">5</div>
+          <div class="recap-body">
+            <div class="recap-title">ヒープ</div>
+            <div class="recap-desc">malloc で好きな大きさをひと続きで借り、free で返す。返すのはプログラムの責任。空きの合計が足りても、細切れなら大きなかたまりは借りられない（断片化）。</div>
+          </div>
+        </div>
+        <div class="recap-item">
+          <div class="recap-num">6</div>
+          <div class="recap-body">
+            <div class="recap-title">ポインタ</div>
+            <div class="recap-desc">ポインタは番地をしまう変数で、64ビットでは8バイト。&x は x の番地、*p は p の指す箱。p＋1 は型の大きさだけ進み、a[i] は *(a＋i)。番地を渡せば関数から呼んだ側の変数を書き換えられる。</div>
+          </div>
+        </div>
+        <div class="recap-item">
+          <div class="recap-num">7</div>
+          <div class="recap-body">
+            <div class="recap-title">メモリリークとGC</div>
+            <div class="recap-desc">番地を失った借り物はリークになる。GC はルートからたどれないものを片付ける（マーク＆スイープ）。参照カウントはすぐ片付くが、指し合う輪は残る。Rust は持ち主の規則で翻訳時に確かめる。</div>
+          </div>
+        </div>
+        <div class="recap-item">
+          <div class="recap-num">8</div>
+          <div class="recap-body">
+            <div class="recap-title">メモリの配置</div>
+            <div class="recap-desc">翻訳時に決まりずっと残る：コード・読み取り専用・データ・BSS。実行中に決まり返すまで残る：ヒープ。関数が終わると消える：スタック。ヒープとスタックは向かい合って伸びる。</div>
+          </div>
+        </div>
+        <div class="recap-item">
+          <div class="recap-num">9</div>
+          <div class="recap-body">
+            <div class="recap-title">メモリのバグ</div>
+            <div class="recap-desc">解放後の使用・二重解放・バッファあふれは、どれも「使ってよくない番地」を使う間違い。戻り先が書き換えられると乗っ取られる。OS の守り・入力の確認・安全な言語で防ぐ。</div>
+          </div>
+        </div>
+        <div class="recap-item">
+          <div class="recap-num">10</div>
+          <div class="recap-body">
+            <div class="recap-title">仮想メモリ</div>
+            <div class="recap-desc">プログラムは仮想番地を使い、MMU がページ表で物理番地に変換する。表に無いフレームには触れない。許可の無い書き込みや表に無い番地はページフォールト。足りなければスワップ、変換結果は TLB に。</div>
+          </div>
+        </div>
+      </div>
+      <div class="complete-actions">
+        <a class="btn btn-primary" href="/c-pointer-dojo/">次の旅へ：C言語ポインタ道場 →</a>
+        <a class="btn" href="./">トップへ戻る</a>
+        <a class="btn" href="https://x.com/intent/post?text=%E3%83%A1%E3%83%A2%E3%83%AA%E3%81%AE%E3%81%97%E3%81%8F%E3%81%BF%E3%82%AF%E3%82%A8%E3%82%B9%E3%83%88%E3%82%92%E5%85%A810%E3%82%B9%E3%83%86%E3%83%BC%E3%82%B8%E3%82%AF%E3%83%AA%E3%82%A2%E3%81%97%E3%81%9F%EF%BC%81&url=https%3A%2F%2Finformatics.habatakijuku.com%2Fmemory-quest%2F" target="_blank" rel="noopener">𝕏 でシェア</a>
+        <button class="btn" id="btn-reset-all">🔄 最初から</button>
+      </div>
+    </section>
+    <div id="book-recommend"></div>
+  </main>
+
+  <footer>
+    <p>NO DOWNLOAD. NO REGISTRATION. JUST LEARN. &nbsp;© <span id="year"></span> ruglerugle</p>
+    <div class="footer-suits" aria-hidden="true"><span>🧠</span><span>📦</span><span>🧹</span><span>🗺️</span></div>
+  </footer>
+</div>
+<script>document.getElementById("year").textContent = new Date().getFullYear();</script>
+<script src="js/stages.js?v=20261108b"></script>
+<script src="js/progress.js?v=20261108b"></script>
+<script>QUEST.initCompletePage();</script>
+<script src="https://my.habatakijuku.com/sync.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#241a40">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-9RTQCP2HXM"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-9RTQCP2HXM');
+</script>
+<title>STAGE4 スタック ― メモリのしくみクエスト</title>
+<meta name="description" content="関数を呼ぶたびに、ローカル変数と「戻り先」をしまう板がスタックに積まれ、関数が終わると取り除かれる。後から入れたものを先に出す（LIFO）しくみと、ローカル変数が関数の外で使えない理由、深く呼びすぎるとあふれる理由を、1行ずつ確かめる。">
+<link rel="canonical" href="https://informatics.habatakijuku.com/memory-quest/stage4">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="メモリのしくみクエスト">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:title" content="STAGE4 スタック ― メモリのしくみクエスト">
+<meta property="og:description" content="関数を呼ぶと板が積まれる。スタックとスタックフレーム、戻り先のしくみ。">
+<meta property="og:url" content="https://informatics.habatakijuku.com/memory-quest/stage4">
+<meta property="og:image" content="https://informatics.habatakijuku.com/images/ogp/memory-quest.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧠</text></svg>">
+<link rel="stylesheet" href="design-system.css?v=20261108b">
+<link rel="stylesheet" href="lab.css?v=20261108b">
+<script src="js/stages.js?v=20261108b"></script>
+<script src="js/progress.js?v=20261108b"></script>
+<script src="js/labs.js?v=20261108b"></script>
+</head>
+<body>
+<div class="app-shell side-collapsed" id="app-shell">
+  <header class="game-header">
+    <div class="brand">
+      <div class="brand-title"><a class="head-reset home-badge" href="./" title="トップへ" aria-label="トップへ">🧠</a> <span>メモリのしくみクエスト</span></div>
+      <div class="brand-sub">STAGE 4 ― スタック ―</div>
+    </div>
+    <div class="head-progress-wrap">
+      <div class="head-progress-label" id="progress-label">クリア 0 / 10</div>
+      <div class="head-progress" role="progressbar" aria-label="クリア済みステージ数" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"><div class="head-progress-fill" id="progress-fill" style="width:0%"></div></div>
+    </div>
+    <div class="header-actions">
+      <a class="head-reset" href="/" title="情報の冒険（シリーズの地図）へ">🧭 地図</a>
+      <button class="head-reset" id="btn-reset-all">🔄 最初から</button>
+      <button class="head-reset" id="head-nav-toggle" title="ステージ一覧の表示切替">☰ ナビ</button>
+    </div>
+  </header>
+
+  <div class="game-layout">
+    <div class="side-backdrop" id="side-backdrop"></div>
+    <aside class="side-panel">
+      <div class="side-head">
+        <button class="side-toggle" id="sidebar-toggle" title="ステージ一覧の表示切替" aria-label="ステージ一覧の表示切替">☰</button>
+        <span class="side-head-text">📚 ステージ一覧</span>
+      </div>
+      <div class="side-list" id="side-list"></div>
+    </aside>
+
+    <main class="main-area">
+      <div class="chapter-head">
+        <span class="chapter-badge">STAGE 4</span><h1 class="chapter-title">スタック</h1>
+        <div class="chapter-sub">関数を呼ぶと板が積まれる</div>
+      </div>
+
+      <div class="mission-box">
+        <div class="mission-label">🎯 ミッション</div>
+        <div class="mission-text">関数呼び出しでスタックに何が積まれ、いつ消えるかを説明できるようになろう。関数を呼ぶプログラムを最後まで1行ずつ進め、確認クイズに全問正解すれば合格。</div>
+        <span class="mission-status" id="mission-status">未達成</span>
+      </div>
+
+      <div class="dialogue-scene">
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">ここからは、プログラムのデータがメモリの<strong>どこに</strong>置かれるかを見ていく。最初は関数だ。関数は、決まった仕事をまとめて名前を付けたもので、呼ぶと仕事をして、答えを返して、呼んだところへ戻ってくる。たとえば、x を受け取って x×x を返す square という関数を考えよう。</div>
+        </div>
+      </div>
+      <div class="formula-box">
+        <span class="step"><code>int square(int x) { int y = x * x; return y; }</code></span>
+        <span class="step"><code>int main(void) { int a = 3; int b = square(a); int c = b + 1; }</code></span>
+        <span class="step">int は4バイトの整数。main はプログラムが最初に動かす関数</span>
+      </div>
+      <div class="dialogue-scene">
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">square の中の x と y は、どこにしまわれるんですか？ 決まった番地を割り当てておくんですか？</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">決まった番地にすると困ることがあるんだ。square が自分自身を呼ぶような関数だったら、1回目の x と2回目の x を、同時に覚えておかなければならない。だから、関数の変数は<strong>呼ばれるたびに</strong>新しく場所を用意して、終わったら片付ける。そのための場所が<strong>スタック</strong>だ。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">スタック……「積み重ね」という意味ですよね。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そう。皿を積むように、上に積んで、上から取る。<strong>最後に積んだものを最初に取り出す</strong>ので、Last In First Out、略して <strong>LIFO</strong> と呼ぶ。関数を呼ぶたびに、その関数のための<strong>板</strong>を1枚積む。この板を<strong>スタックフレーム</strong>と呼ぶ。板には、その関数のローカル変数（関数の中だけで使う変数）と、もう1つ大事なものが書かれる。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">もう1つ？</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">「仕事が終わったら<strong>どこへ戻ればいいか</strong>」だ。square は main から呼ばれることもあれば、ほかの関数から呼ばれることもある。だから、呼ぶときに「呼んだ場所の次の命令の番地」を板に書いておく。これを<strong>戻り先</strong>（リターンアドレス）と呼ぶ。</div>
+        </div>
+      </div>
+      <div class="formula-box">
+        <span class="step">関数を呼ぶ：板（スタックフレーム）を1枚積む。戻り先・引数のコピー・ローカル変数の場所</span>
+        <span class="step">関数が終わる（return）：答えを渡し、板を丸ごと取り除いて、戻り先へ戻る</span>
+      </div>
+      <div class="lab" data-lab="stack" data-id="mem-s4-stack"></div>
+      <div class="dialogue-scene">
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">square が終わったら、x と y は板ごと消えてしまうんですね。だから、関数の中で作った変数は、関数の外では使えない。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そう。そして、片付けるのに何もしなくていいのがスタックのいいところだ。CPU は「いまの一番上はここ」という番地を覚えておく専用のレジスタ（<strong>スタックポインタ</strong>）を持っていて、板を積むのも取るのも、その番地を板の大きさだけ動かすだけで済む。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">引数の x は、a そのものではなく<strong>コピー</strong>なんですか？</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">C言語では、引数には値のコピーが渡される。だから square の中で x を書き換えても、main の a は変わらない。もし関数の中から呼んだ側の変数を書き換えたいときは、変数の<strong>番地</strong>を渡す必要がある。それが STAGE6 のポインタの話につながる。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">スタックの大きさに限りはあるんですか？ 関数が関数を呼んで、それがまた関数を呼んで……と深くなると、板がどんどん積まれます。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">限りはある。プログラムごとに、スタックに使える大きさが決まっている（数MB程度が多い）。関数が自分自身を呼び続けて止まらないような間違いがあると、板が積まれ続けて、決められた大きさを超える。これを<strong>スタックオーバーフロー</strong>（スタックあふれ）と呼び、プログラムは強制的に止められる。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">板の大きさは、いつ決まるんですか？</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">関数の中のローカル変数の大きさは、プログラムを翻訳する時点で分かっている。だから、コンパイラが「この関数の板は何バイト」と決めておける。逆に言うと、<strong>実行してみるまで大きさが分からないもの</strong>や、<strong>関数が終わったあとも残しておきたいもの</strong>は、スタックには置けない。それを置くのが、次のヒープだ。</div>
+        </div>
+      </div>
+
+      <h2 class="quiz-head">確認クイズ</h2>
+      <div class="quiz-card" data-quiz>
+        <p class="quiz-q">Q1. スタックの「LIFO」の意味は？</p>
+        <div class="choice-list">
+          <button class="choice-btn">最後に積んだものを最初に取り出す</button>
+          <button class="choice-btn">最初に積んだものを最初に取り出す</button>
+          <button class="choice-btn">好きな順番で取り出せる</button>
+        </div>
+        <div class="quiz-explain" hidden>正解！ Last In First Out。皿の山のように、上に積んで上から取る。関数は呼んだ順の逆に終わるので、この形がぴったり合う。</div>
+      </div>
+      <div class="quiz-card" data-quiz>
+        <p class="quiz-q">Q2. 関数を呼んだときにスタックフレームに書かれる「戻り先」とは？</p>
+        <div class="choice-list">
+          <button class="choice-btn">関数の答えをしまう番地</button>
+          <button class="choice-btn">関数の命令が置かれている番地</button>
+          <button class="choice-btn">関数が終わったあとに続きを実行する、呼び出した場所の次の命令の番地</button>
+        </div>
+        <div class="quiz-explain" hidden>正解！ 同じ関数がいろいろな場所から呼ばれるので、どこへ戻るかを呼ぶたびに書いておく。</div>
+      </div>
+      <div class="quiz-card" data-quiz>
+        <p class="quiz-q">Q3. 関数の中のローカル変数を、関数が終わったあとに使えない理由は？</p>
+        <div class="choice-list">
+          <button class="choice-btn">ローカル変数はレジスタにしか置かれないから</button>
+          <button class="choice-btn">関数が終わるとスタックフレームが丸ごと取り除かれ、その場所は次に呼ぶ関数が使うから</button>
+          <button class="choice-btn">関数が終わると、OS がメモリを全部 0 にするから</button>
+        </div>
+        <div class="quiz-explain" hidden>正解！ 板を取り除くのはスタックポインタを動かすだけ。場所は次の関数の板として再利用される。</div>
+      </div>
+
+      <div class="stage-nav">
+        <a class="btn" href="stage3.html">← 前のステージ</a>
+        <button class="btn btn-primary" id="btn-next" disabled>次へ →</button>
+      </div>
+
+      <div id="book-recommend"></div>
+    </main>
+  </div>
+</div>
+
+<script>QUEST.initStagePage(4);</script>
+
+<script src="https://my.habatakijuku.com/sync.js" defer></script>
+</body>
+</html>

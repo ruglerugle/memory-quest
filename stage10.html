@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#241a40">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-9RTQCP2HXM"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-9RTQCP2HXM');
+</script>
+<title>STAGE10 仮想メモリ ― メモリのしくみクエスト</title>
+<meta name="description" content="パソコンでは何十ものプログラムが同時に動いているのに、なぜお互いのメモリを壊さないのか。プログラムごとに「仮想番地」を見せ、ページ表で本物の番地に変換するしくみ、読み書きの許可、足りないときにストレージへ逃がすしくみまでを確かめる。">
+<link rel="canonical" href="https://informatics.habatakijuku.com/memory-quest/stage10">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="メモリのしくみクエスト">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:title" content="STAGE10 仮想メモリ ― メモリのしくみクエスト">
+<meta property="og:description" content="プログラムごとに自分だけの番地。ページ表で仮想番地を物理番地に変換する。">
+<meta property="og:url" content="https://informatics.habatakijuku.com/memory-quest/stage10">
+<meta property="og:image" content="https://informatics.habatakijuku.com/images/ogp/memory-quest.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧠</text></svg>">
+<link rel="stylesheet" href="design-system.css?v=20261108b">
+<link rel="stylesheet" href="lab.css?v=20261108b">
+<script src="js/stages.js?v=20261108b"></script>
+<script src="js/progress.js?v=20261108b"></script>
+<script src="js/labs.js?v=20261108b"></script>
+</head>
+<body>
+<div class="app-shell side-collapsed" id="app-shell">
+  <header class="game-header">
+    <div class="brand">
+      <div class="brand-title"><a class="head-reset home-badge" href="./" title="トップへ" aria-label="トップへ">🧠</a> <span>メモリのしくみクエスト</span></div>
+      <div class="brand-sub">STAGE 10 ― 仮想メモリ ―</div>
+    </div>
+    <div class="head-progress-wrap">
+      <div class="head-progress-label" id="progress-label">クリア 0 / 10</div>
+      <div class="head-progress" role="progressbar" aria-label="クリア済みステージ数" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"><div class="head-progress-fill" id="progress-fill" style="width:0%"></div></div>
+    </div>
+    <div class="header-actions">
+      <a class="head-reset" href="/" title="情報の冒険（シリーズの地図）へ">🧭 地図</a>
+      <button class="head-reset" id="btn-reset-all">🔄 最初から</button>
+      <button class="head-reset" id="head-nav-toggle" title="ステージ一覧の表示切替">☰ ナビ</button>
+    </div>
+  </header>
+
+  <div class="game-layout">
+    <div class="side-backdrop" id="side-backdrop"></div>
+    <aside class="side-panel">
+      <div class="side-head">
+        <button class="side-toggle" id="sidebar-toggle" title="ステージ一覧の表示切替" aria-label="ステージ一覧の表示切替">☰</button>
+        <span class="side-head-text">📚 ステージ一覧</span>
+      </div>
+      <div class="side-list" id="side-list"></div>
+    </aside>
+
+    <main class="main-area">
+      <div class="chapter-head">
+        <span class="chapter-badge">STAGE 10</span><h1 class="chapter-title">仮想メモリ</h1>
+        <div class="chapter-sub">ページ表で自分だけの番地</div>
+      </div>
+
+      <div class="mission-box">
+        <div class="mission-label">🎯 ミッション</div>
+        <div class="mission-text">仮想メモリがなぜ必要で、ページ表でどう番地を変換するのかを説明できるようになろう。同じ仮想番地が2つのプログラムで別の物理番地になることを確かめ、確認クイズに全問正解すれば合格。</div>
+        <span class="mission-status" id="mission-status">未達成</span>
+      </div>
+
+      <div class="dialogue-scene">
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">最後のステージだ。いま、きみのパソコンでは、ブラウザ、音楽、メッセージのアプリなど、何十ものプログラムが同時に動いている。それぞれのプログラムは、自分のスタックやヒープを持っている。ここで問題だ。2つのプログラムが、どちらも「番地 0x1000 に書く」としたら？</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">同じ箱に書いてしまって、お互いのデータを壊します。……でも、プログラムを書いた人は、ほかにどんなプログラムが同時に動くかなんて知らないですよね。番地がぶつからないように前もって決めておくのは無理です。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そう。それに、悪意のあるプログラムが、わざとほかのプログラムの番地を読み書きしたら大変だ。そこで、いまのコンピュータでは、<strong>プログラムが使う番地は本物の番地ではない</strong>ことにしている。プログラムが見ている番地を<strong>仮想番地</strong>、メモリの箱の本当の番地を<strong>物理番地</strong>と呼ぶ。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">仮想番地から物理番地への変換は、だれがするんですか？</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">CPU の中の<strong>MMU</strong>（メモリ管理ユニット）という回路が、メモリを読み書きするたびに変換する。変換の対応表は、プログラムごとに OS が作って持たせる。ただ、1バイトごとに対応表を作ったら、表のほうがメモリより大きくなってしまう。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbitThink.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble"> じゃあ、まとめて対応させる……。キャッシュのラインみたいに、かたまり単位で。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">その通り。メモリを決まった大きさのかたまりに区切って、かたまりごとに対応させる。このかたまりを<strong>ページ</strong>（いまのパソコンではふつう4KB＝4096バイト）、対応表を<strong>ページ表</strong>と呼ぶ。仮想番地を「何ページ目か」と「ページの中の何バイト目か」に分けて、ページ番号だけを表で置き換える。</div>
+        </div>
+      </div>
+      <div class="formula-box">
+        <span class="step">ページ番号 ＝ 仮想番地 ÷ ページの大きさ の商　／　ページの中の位置 ＝ その余り</span>
+        <span class="step">ページ表で ページ番号 → 物理フレーム番号（物理メモリ側のページの置き場）</span>
+        <span class="step">物理番地 ＝ フレーム番号 × ページの大きさ ＋ ページの中の位置</span>
+      </div>
+      <div class="dialogue-scene">
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">小さな例で計算しよう。ページの大きさを16バイトとして、プログラム A のページ表で「仮想ページ2 → 物理フレーム7」だったとする。仮想番地 0x25 は物理番地のどこになるかな。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbitThink.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble"> 0x25 は 2×16＋5 ＝ 37。16で割ると商が2、余りが5 だから、ページ2 の5バイト目。ページ2 はフレーム7 なので、7×16＋5 ＝ 117、16進数で 0x75 です。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そう。プログラム B のページ表では「仮想ページ2 → 物理フレーム3」だったら？</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">3×16＋5 ＝ 53、0x35。同じ 0x25 でも、A と B では別の箱に行く。だから、ぶつからない。</div>
+        </div>
+      </div>
+      <p class="lab-note">※ 模型では、ページの大きさを16バイトとしている。</p>
+      <div class="lab" data-lab="vmem" data-id="mem-s10-vm"></div>
+      <div class="dialogue-scene">
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">プログラムは、自分のページ表に載っている物理フレームにしか行き着けない。ほかのプログラムのフレームは、そもそも表に無いので、番地をどう選んでも触れないんだ。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">ページ表に載っていない番地を使ったら、どうなるんですか？</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">MMU が変換できずに CPU を止めて、OS に知らせる。これを<strong>ページフォールト</strong>と呼ぶ。プログラムが本当におかしな番地を使っていたのなら、OS はプログラムを強制終了させる（よく見る「Segmentation fault」はこれだ）。ページ表には、ページごとに「読める・書ける・命令として実行できる」の許可も書いてあって、STAGE8 のコードの区画が書き込み禁止なのも、この許可で守られている。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">ページフォールトは、いつもエラーなんですか？</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">いい質問だね。そうとは限らない。物理メモリが足りなくなると、OS はしばらく使われていないページを<strong>ストレージに逃がして</strong>、ページ表に「いまはストレージにある」と印を付けておく。プログラムがそのページを使おうとするとページフォールトが起き、OS がストレージから読み戻して表を直し、プログラムを何事もなかったように続けさせる。これを<strong>スワップ</strong>（ページング）と呼ぶ。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbitThink.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble"> だから、メモリより大きなプログラムでも動かせる。でも、ストレージは RAM の千倍くらい遅いから（STAGE2）、スワップが頻繁に起きると、とても遅くなりますね。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そう。メモリが足りないパソコンが急に重くなるのは、それが理由の1つなんだ。毎回ページ表を引くのも時間がかかるから、CPU は最近の変換結果を覚えておく小さなキャッシュ（<strong>TLB</strong>）も持っている。ここでもキャッシュの考え方が生きている。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">番地から始まって、CPU との往復、キャッシュ、スタック、ヒープ、ポインタ、片付け、区画、バグ、そして仮想メモリ。プログラムが書いた名前が、どの番地の箱になるのか、全部つながりました。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">旅のまとめを置いておこう。</div>
+        </div>
+      </div>
+      <div class="formula-box">
+        <span class="step">① メモリ＝番地付きの1バイトの箱の列。4バイトで1つの整数</span>
+        <span class="step">② CPU はレジスタで計算し、メモリとは LOAD・STORE で往復する。往復は約300拍</span>
+        <span class="step">③ キャッシュはラインをまとめて運び、2つの局所性で当たる</span>
+        <span class="step">④ スタック：関数ごとの板（ローカル変数・戻り先）。終わると消える</span>
+        <span class="step">⑤ ヒープ：好きな大きさを借りて返す。断片化に注意</span>
+        <span class="step">⑥ ポインタ：番地をしまう変数。& で番地、* で番地の先</span>
+        <span class="step">⑦ 返し忘れはリーク。GC はたどれないものを片付ける</span>
+        <span class="step">⑧ 区画：コード・読み取り専用・データ・BSS・ヒープ・スタック</span>
+        <span class="step">⑨ 解放後の使用・二重解放・バッファあふれは乗っ取りの入口</span>
+        <span class="step">⑩ 仮想番地をページ表で物理番地に変換。プログラムどうしを隔て、足りなければストレージへ</span>
+      </div>
+
+      <h2 class="quiz-head">確認クイズ</h2>
+      <div class="quiz-card" data-quiz>
+        <p class="quiz-q">Q1. 仮想メモリのいちばん大事な役目は？</p>
+        <div class="choice-list">
+          <button class="choice-btn">プログラムごとに別のページ表で番地を変換し、お互いのメモリに触れられないようにすること</button>
+          <button class="choice-btn">メモリの中身を圧縮して、たくさんのデータを入れること</button>
+          <button class="choice-btn">CPU の計算を速くすること</button>
+        </div>
+        <div class="quiz-explain" hidden>正解！ 同じ仮想番地でも、ページ表が違えば別の物理番地になる。表に無いフレームには、どんな番地を使っても行き着けない。</div>
+      </div>
+      <div class="quiz-card" data-quiz>
+        <p class="quiz-q">Q2. ページの大きさが16バイトのとき、仮想番地 0x25（37）のページ番号とページの中の位置は？</p>
+        <div class="choice-list">
+          <button class="choice-btn">ページ5 の 2バイト目</button>
+          <button class="choice-btn">ページ3 の 7バイト目</button>
+          <button class="choice-btn">ページ2 の 5バイト目</button>
+        </div>
+        <div class="quiz-explain" hidden>正解！ 37 ÷ 16 ＝ 2 余り 5。ページ番号は商、ページの中の位置は余り。</div>
+      </div>
+      <div class="quiz-card" data-quiz>
+        <p class="quiz-q">Q3. スワップ（ページング）が頻繁に起きると遅くなる理由は？</p>
+        <div class="choice-list">
+          <button class="choice-btn">ページ表がストレージに保存されてしまうから</button>
+          <button class="choice-btn">逃がしたページを使うたびに、RAM よりずっと遅いストレージから読み戻すから</button>
+          <button class="choice-btn">MMU が止まってしまうから</button>
+        </div>
+        <div class="quiz-explain" hidden>正解！ ストレージは RAM の千倍ほど遅い。足りない分をストレージで補えるのは便利だが、出し入れが多いと待ち時間が増える。</div>
+      </div>
+
+      <div class="stage-nav">
+        <a class="btn" href="stage9.html">← 前のステージ</a>
+        <button class="btn btn-primary" id="btn-next" disabled>まとめへ →</button>
+      </div>
+
+      <div id="book-recommend"></div>
+    </main>
+  </div>
+</div>
+
+<script>QUEST.initStagePage(10);</script>
+
+<script src="https://my.habatakijuku.com/sync.js" defer></script>
+</body>
+</html>

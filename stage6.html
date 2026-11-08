@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#241a40">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-9RTQCP2HXM"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-9RTQCP2HXM');
+</script>
+<title>STAGE6 ポインタ ― メモリのしくみクエスト</title>
+<meta name="description" content="ヒープから借りた場所には名前が無い。番地を覚えておく変数＝ポインタでたどる。&amp; で番地を取り、* で番地の先を読み書きするしくみと、ポインタ自身も8バイトの箱に入っていることを、メモリの表で確かめる。">
+<link rel="canonical" href="https://informatics.habatakijuku.com/memory-quest/stage6">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="メモリのしくみクエスト">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:title" content="STAGE6 ポインタ ― メモリのしくみクエスト">
+<meta property="og:description" content="番地をしまう変数、ポインタ。&amp; と * で番地の先を読み書きする。">
+<meta property="og:url" content="https://informatics.habatakijuku.com/memory-quest/stage6">
+<meta property="og:image" content="https://informatics.habatakijuku.com/images/ogp/memory-quest.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧠</text></svg>">
+<link rel="stylesheet" href="design-system.css?v=20261108b">
+<link rel="stylesheet" href="lab.css?v=20261108b">
+<script src="js/stages.js?v=20261108b"></script>
+<script src="js/progress.js?v=20261108b"></script>
+<script src="js/labs.js?v=20261108b"></script>
+</head>
+<body>
+<div class="app-shell side-collapsed" id="app-shell">
+  <header class="game-header">
+    <div class="brand">
+      <div class="brand-title"><a class="head-reset home-badge" href="./" title="トップへ" aria-label="トップへ">🧠</a> <span>メモリのしくみクエスト</span></div>
+      <div class="brand-sub">STAGE 6 ― ポインタ ―</div>
+    </div>
+    <div class="head-progress-wrap">
+      <div class="head-progress-label" id="progress-label">クリア 0 / 10</div>
+      <div class="head-progress" role="progressbar" aria-label="クリア済みステージ数" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"><div class="head-progress-fill" id="progress-fill" style="width:0%"></div></div>
+    </div>
+    <div class="header-actions">
+      <a class="head-reset" href="/" title="情報の冒険（シリーズの地図）へ">🧭 地図</a>
+      <button class="head-reset" id="btn-reset-all">🔄 最初から</button>
+      <button class="head-reset" id="head-nav-toggle" title="ステージ一覧の表示切替">☰ ナビ</button>
+    </div>
+  </header>
+
+  <div class="game-layout">
+    <div class="side-backdrop" id="side-backdrop"></div>
+    <aside class="side-panel">
+      <div class="side-head">
+        <button class="side-toggle" id="sidebar-toggle" title="ステージ一覧の表示切替" aria-label="ステージ一覧の表示切替">☰</button>
+        <span class="side-head-text">📚 ステージ一覧</span>
+      </div>
+      <div class="side-list" id="side-list"></div>
+    </aside>
+
+    <main class="main-area">
+      <div class="chapter-head">
+        <span class="chapter-badge">STAGE 6</span><h1 class="chapter-title">ポインタ</h1>
+        <div class="chapter-sub">番地をしまう変数</div>
+      </div>
+
+      <div class="mission-box">
+        <div class="mission-label">🎯 ミッション</div>
+        <div class="mission-text">ポインタが「番地をしまう変数」であることと、& と * の意味を説明できるようになろう。確認クイズに全問正解すれば合格。</div>
+        <span class="mission-status" id="mission-status">未達成</span>
+      </div>
+
+      <div class="dialogue-scene">
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">前のステージで、ヒープから借りると番地が返ってくると話したね。その番地を覚えておく変数を<strong>ポインタ</strong>と呼ぶ。pointer は「指し示すもの」という意味だ。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">番地も数ですよね。だったら、ふつうの整数の変数にしまえばいいのでは？</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">中身はたしかに数なんだけれど、C言語では「これは番地で、その先には int が入っている」という情報も一緒に持たせる。そのために、ポインタは <code>int *p;</code> のように、型の後ろに * を付けて宣言する。「int を指すポインタ p」と読む。</div>
+        </div>
+      </div>
+      <div class="formula-box">
+        <span class="step"><code>int x = 5;</code>　x という4バイトの箱（たとえば番地 0x20）に 5 を入れる</span>
+        <span class="step"><code>int *p = &amp;x;</code>　<code>&amp;x</code> は「x の番地」。p に 0x20 をしまう。「p は x を指している」と言う</span>
+        <span class="step"><code>*p = 10;</code>　<code>*p</code> は「p にしまってある番地の箱」。そこに 10 を書くので、x が 10 になる</span>
+      </div>
+      <div class="dialogue-scene">
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbitThink.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble"> & は「番地を取り出す」、* は「番地の先へ行く」。逆向きの操作なんですね。だから *(&amp;x) は x そのもの。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">その通り。p に別の変数の番地を入れ直せば、p が指す先も変わる。p そのものは、ただの番地の入れ物なんだ。</div>
+        </div>
+      </div>
+      <div class="lab" data-lab="pointer"></div>
+      <div class="dialogue-scene">
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">p の中身は番地なので、p 自体もどこかの番地の箱に入っているんですね。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そう。ポインタも変数だから、メモリのどこかに置かれる。いまのパソコン（64ビットの CPU）では、番地は8バイトで表すので、ポインタの箱は8バイトだ。指す先が1バイトの文字でも、4バイトの int でも、ポインタ自身は8バイト。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">ポインタが指す先の型を知っていると、何がいいんですか？</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble"><code>*p</code> と書いたときに、何バイト読めばいいかが分かる。int なら4バイト、文字なら1バイト。それから、番地の足し算にも使われる。int の配列を指す p に1を足すと、番地は1ではなく<strong>4</strong>進む。「次の int」を指すようにね。</div>
+        </div>
+      </div>
+      <div class="formula-box">
+        <span class="step"><code>int a[3];</code> が番地 0x40 から並んでいるとき：a[0] は 0x40、a[1] は 0x44、a[2] は 0x48</span>
+        <span class="step"><code>int *p = &amp;a[0];</code> なら、<code>p + 1</code> は 0x44（1つ分＝4バイト進む）、<code>*(p + 2)</code> は a[2]</span>
+      </div>
+      <div class="dialogue-scene">
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">配列の a[2] は、「先頭から int 2つ分進んだ箱」という意味だったんですね。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そう。C言語の配列の添え字は、ポインタの足し算と同じことなんだ。ここで、ヒープとつなげよう。<code>int *nums = malloc(100 * sizeof(int));</code> と書くと、int 100個分（400バイト）を借りて、その先頭の番地が nums に入る。<code>sizeof(int)</code> は int の大きさ（多くの環境で4）を表す。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbitThink.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble"> そうすると nums[0] から nums[99] として使える。番地は nums に入っているから、関数が終わっても、その番地を返せば借りた場所を使い続けられますね。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そう。ヒープの場所はスタックの板と違って、関数が終わっても消えない。番地さえ覚えていれば、どこからでもたどれる。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">逆に、番地を忘れてしまったら？</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">借りた場所は残っているのに、もうだれもたどれない。返すこともできない。それが次のステージのテーマ、メモリリークだ。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">最後に、STAGE4 の約束を思い出そう。C言語では、関数の引数には値のコピーが渡される。関数の中から、呼んだ側の変数を書き換えるにはどうする？</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">変数の番地を渡せばいい。関数は受け取った番地の先（*p）に書き込めば、呼んだ側の変数そのものが変わります。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そう。ポインタは「離れた場所にあるものを、番地で指して操作する」ための道具なんだ。強力だけれど、指している先が正しいかどうかは、プログラムを書く人が責任を持たないといけない。C言語のポインタを、実際にコードを1行ずつ動かしながら練習したければ、『<a href="https://informatics.habatakijuku.com/c-pointer-dojo/" target="_blank" rel="noopener" style="color:#8a5a2a;text-decoration:underline">C言語ポインタ道場</a>』で続きをやろう。</div>
+        </div>
+      </div>
+
+      <h2 class="quiz-head">確認クイズ</h2>
+      <div class="quiz-card" data-quiz>
+        <p class="quiz-q">Q1. <code>int x = 5; int *p = &amp;x; *p = 10;</code> を実行したあとの x の値は？</p>
+        <div class="choice-list">
+          <button class="choice-btn">5</button>
+          <button class="choice-btn">10</button>
+          <button class="choice-btn">x の番地</button>
+        </div>
+        <div class="quiz-explain" hidden>正解！ p には x の番地が入っている。*p は「その番地の箱」なので、*p＝10 は x に 10 を書くのと同じ。</div>
+      </div>
+      <div class="quiz-card" data-quiz>
+        <p class="quiz-q">Q2. 64ビットの CPU で、char（1バイトの文字）を指すポインタ自身の大きさは？</p>
+        <div class="choice-list">
+          <button class="choice-btn">8バイト</button>
+          <button class="choice-btn">1バイト</button>
+          <button class="choice-btn">4バイト</button>
+        </div>
+        <div class="quiz-explain" hidden>正解！ ポインタの中身は番地。番地は8バイトで表すので、指す先の型によらず、ポインタは8バイト。</div>
+      </div>
+      <div class="quiz-card" data-quiz>
+        <p class="quiz-q">Q3. int（4バイト）の配列を指すポインタ p に 1 を足すと、番地はいくつ進む？</p>
+        <div class="choice-list">
+          <button class="choice-btn">1</button>
+          <button class="choice-btn">8</button>
+          <button class="choice-btn">4</button>
+        </div>
+        <div class="quiz-explain" hidden>正解！ p＋1 は「次の int」を指す。int は4バイトなので、番地は4進む。a[i] は *(a＋i) と同じ意味。</div>
+      </div>
+
+      <div class="stage-nav">
+        <a class="btn" href="stage5.html">← 前のステージ</a>
+        <button class="btn btn-primary" id="btn-next" disabled>次へ →</button>
+      </div>
+
+      <div id="book-recommend"></div>
+    </main>
+  </div>
+</div>
+
+<script>QUEST.initStagePage(6);</script>
+
+<script src="https://my.habatakijuku.com/sync.js" defer></script>
+</body>
+</html>

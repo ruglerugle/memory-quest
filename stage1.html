@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#241a40">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-9RTQCP2HXM"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-9RTQCP2HXM');
+</script>
+<title>STAGE1 メモリと番地 ― メモリのしくみクエスト</title>
+<meta name="description" content="プログラムが動くとき、数や文字はどこに置かれているのか。メモリ（RAM）は1バイトずつの箱が一列に並んだもので、箱には番地という通し番号がある。番地の16進数表記、4バイトで1つの数を表すしくみ、電源を切ると消える理由までを確かめる。">
+<link rel="canonical" href="https://informatics.habatakijuku.com/memory-quest/stage1">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="メモリのしくみクエスト">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:title" content="STAGE1 メモリと番地 ― メモリのしくみクエスト">
+<meta property="og:description" content="メモリは1バイトの箱の列。番地で場所を指定する。プログラムの数や文字の置き場所を知る旅の始まり。">
+<meta property="og:url" content="https://informatics.habatakijuku.com/memory-quest/stage1">
+<meta property="og:image" content="https://informatics.habatakijuku.com/images/ogp/memory-quest.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧠</text></svg>">
+<link rel="stylesheet" href="design-system.css?v=20261108b">
+<link rel="stylesheet" href="lab.css?v=20261108b">
+<script src="js/stages.js?v=20261108b"></script>
+<script src="js/progress.js?v=20261108b"></script>
+<script src="js/labs.js?v=20261108b"></script>
+</head>
+<body>
+<div class="app-shell side-collapsed" id="app-shell">
+  <header class="game-header">
+    <div class="brand">
+      <div class="brand-title"><a class="head-reset home-badge" href="./" title="トップへ" aria-label="トップへ">🧠</a> <span>メモリのしくみクエスト</span></div>
+      <div class="brand-sub">STAGE 1 ― メモリと番地 ―</div>
+    </div>
+    <div class="head-progress-wrap">
+      <div class="head-progress-label" id="progress-label">クリア 0 / 10</div>
+      <div class="head-progress" role="progressbar" aria-label="クリア済みステージ数" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"><div class="head-progress-fill" id="progress-fill" style="width:0%"></div></div>
+    </div>
+    <div class="header-actions">
+      <a class="head-reset" href="/" title="情報の冒険（シリーズの地図）へ">🧭 地図</a>
+      <button class="head-reset" id="btn-reset-all">🔄 最初から</button>
+      <button class="head-reset" id="head-nav-toggle" title="ステージ一覧の表示切替">☰ ナビ</button>
+    </div>
+  </header>
+
+  <div class="game-layout">
+    <div class="side-backdrop" id="side-backdrop"></div>
+    <aside class="side-panel">
+      <div class="side-head">
+        <button class="side-toggle" id="sidebar-toggle" title="ステージ一覧の表示切替" aria-label="ステージ一覧の表示切替">☰</button>
+        <span class="side-head-text">📚 ステージ一覧</span>
+      </div>
+      <div class="side-list" id="side-list"></div>
+    </aside>
+
+    <main class="main-area">
+      <div class="chapter-head">
+        <span class="chapter-badge">STAGE 1</span><h1 class="chapter-title">メモリと番地</h1>
+        <div class="chapter-sub">1バイトずつの箱の列</div>
+      </div>
+
+      <div class="mission-box">
+        <div class="mission-label">🎯 ミッション</div>
+        <div class="mission-text">メモリが「番地付きの1バイトの箱の列」であることを説明できるようになろう。指定された番地の中身を3つ読み、確認クイズに全問正解すれば合格。</div>
+        <span class="mission-status" id="mission-status">未達成</span>
+      </div>
+
+      <div class="dialogue-scene">
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">この旅で解きたい問題から話そう。きみがゲームで遊んでいるとき、得点やキャラクターの位置は、コンピュータのどこかに覚えておかれている。プログラムの中で <code>score = 120</code> と書けば、120 という数がどこかにしまわれる。その「どこか」が<strong>メモリ</strong>だ。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">置き場所があるのは分かります。でも、プログラムを書く人は「どこに置くか」なんて指定していませんよね。名前を付けているだけで。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そう、そこがこの旅の謎なんだ。分かっていることと知りたいことを並べよう。</div>
+        </div>
+      </div>
+      <div class="formula-box">
+        <span class="step"><strong>この旅で解きたい問題</strong></span>
+        <span class="step">分かっているもの：CPU は「番地を指定して、メモリから読む・メモリへ書く」ことしかできない（『論理回路CPUクエスト』の LOAD と STORE）</span>
+        <span class="step">知りたいもの：名前で書いた変数・関数の呼び出し・あとから必要になったデータが、メモリのどこに、いつ置かれ、いつ片付けられるのか。そして、それを間違えると何が起きるのか</span>
+        <span class="step">道順：メモリと番地（1）→ CPU との往復と速さの工夫（2〜3）→ 関数のための置き場所スタック（4）→ 好きなときに借りるヒープ（5）→ 番地をしまう変数ポインタ（6）→ 片付け忘れと自動の片付け（7）→ 全体の地図（8）→ 間違えると起きること（9）→ プログラムごとに自分だけの番地を見せるしくみ（10）</span>
+      </div>
+      <div class="dialogue-scene">
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">まず、メモリそのものの形を見よう。パソコンやスマホのメモリ（正式には <strong>RAM</strong>、ラムと呼ぶ）は、<strong>1バイトずつの小さな箱</strong>が、ずらりと一列に並んだものだ。1バイトは何ビットだったかな。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">8ビットです。0と1が8個並んでいて、0 から 255 までの数を1つ入れられる。『論理回路CPUクエスト』でやりました。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そう。8GB のメモリなら、この箱がおよそ80億個並んでいる。そして、箱にはそれぞれ<strong>番地</strong>（アドレス）という通し番号が付いている。0番地、1番地、2番地……と、端から順に。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">住所みたいなものですね。番地が分かれば、その箱を探さなくても、すぐに開けられる。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そう。しかもメモリは、どの番地の箱でも<strong>同じ速さで</strong>開けられる。端から数えていくわけではないんだ。好きな場所に直接行けるので、「ランダムアクセス（好きな順番で取り出せる）メモリ」、略して RAM と呼ばれている。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">番地が80億まであると、10進数で書いても長いですね。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">だから番地は、ふつう<strong>16進数</strong>で書く。4ビットを1文字にまとめる書き方だったね。頭に <strong>0x</strong> を付けて「これは16進数」と示す決まりがある。0x1A なら、1×16＋10＝26 番地だ。</div>
+        </div>
+      </div>
+      <div class="formula-box">
+        <span class="step">16進数の文字：0〜9、A＝10、B＝11、C＝12、D＝13、E＝14、F＝15</span>
+        <span class="step">0x1A ＝ 1×16 ＋ 10 ＝ 26 番地　／　0x10 ＝ 16 番地</span>
+      </div>
+      <div class="dialogue-scene">
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">1つの箱には 255 までしか入りませんよね。120 なら入るけれど、得点が 1000 を超えたらどうするんですか？</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">箱を何個か<strong>並べて使う</strong>。ふつうの整数は4バイト、つまり箱4個をひとまとまりにして使うことが多い。4バイトは何ビットで、どこまで数えられる？</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbitThink.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble"> 8×4 で32ビット。2を32回掛けると……約43億。マイナスも使うなら、半分ずつで約±21億までです。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">その通り。1000 なら、2進数で 0000 0011 1110 1000 だから、下の8ビット（232）と次の8ビット（3）に分けて、4つの箱にしまう。いまのパソコンの多くは、<strong>下の桁の方を小さい番地に</strong>置く決まりになっている。</div>
+        </div>
+      </div>
+      <div class="formula-box">
+        <span class="step">1000 ＝ 3 × 256 ＋ 232</span>
+        <span class="step">0x10番地：232　0x11番地：3　0x12番地：0　0x13番地：0　（4つで1つの数）</span>
+      </div>
+      <div class="lab" data-lab="ram" data-id="mem-s1-ram"></div>
+      <div class="dialogue-scene">
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">箱の中身はただの数なんですね。その4つが「1つの数」なのか「4つの文字」なのかは、箱を見ただけでは分からない。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そう。メモリには0と1の並びが入っているだけで、それを数と読むか文字と読むかは、プログラムの側が決めている。これは、このあと何度も大事になる。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">ところで、パソコンの電源を切ると、メモリの中身はどうなりますか？</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">消える。RAM は、小さなコンデンサ（電気をためる部品）にたまった電気の有る無しで0と1を覚えている。たまった電気は少しずつ漏れるので、1秒間に何十回も読み直して書き直している（これを<strong>リフレッシュ</strong>と呼ぶ）。電源が切れると書き直せなくなって、中身は消えてしまうんだ。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">だから、作ったデータは「保存」して、別の場所にしまうんですね。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そう。保存先の SSD やハードディスク（<strong>ストレージ</strong>）は、電源を切っても消えない代わりに、RAM よりずっと遅い。プログラムを動かすときは、ストレージから RAM に読み込んで、RAM の上で計算する。次のステージでは、その RAM と CPU のあいだで何が起きているかを見よう。</div>
+        </div>
+      </div>
+
+      <h2 class="quiz-head">確認クイズ</h2>
+      <div class="quiz-card" data-quiz>
+        <p class="quiz-q">Q1. 番地 0x1F は、10進数で何番地？</p>
+        <div class="choice-list">
+          <button class="choice-btn">31</button>
+          <button class="choice-btn">115</button>
+          <button class="choice-btn">16</button>
+        </div>
+        <div class="quiz-explain" hidden>正解！ 0x1F ＝ 1×16 ＋ 15（F）＝ 31。16進数は1文字が0〜15を表す。</div>
+      </div>
+      <div class="quiz-card" data-quiz>
+        <p class="quiz-q">Q2. 4バイトの整数で表せる数の種類は？</p>
+        <div class="choice-list">
+          <button class="choice-btn">4×256 ＝ 1024 通り</button>
+          <button class="choice-btn">2を4回掛けた数（16）通り</button>
+          <button class="choice-btn">2を32回掛けた数（約43億）通り</button>
+        </div>
+        <div class="quiz-explain" hidden>正解！ 4バイト＝32ビット。1ビット増えるごとに2倍になるので、2を32回掛けた数だけ表せる。</div>
+      </div>
+      <div class="quiz-card" data-quiz>
+        <p class="quiz-q">Q3. パソコンの電源を切ると RAM の中身が消える理由は？</p>
+        <div class="choice-list">
+          <button class="choice-btn">電源を切るときに、OS が全部の番地に 0 を書き込むから</button>
+          <button class="choice-btn">0と1を、少しずつ漏れる電気の有る無しで覚えていて、電源が無いと書き直せないから</button>
+          <button class="choice-btn">RAM はストレージと同じ部品なので、電源を切るとリセットされるから</button>
+        </div>
+        <div class="quiz-explain" hidden>正解！ RAM は小さなコンデンサの電気で記憶し、漏れる分を定期的に書き直している（リフレッシュ）。電源が切れると記憶が保てない。</div>
+      </div>
+
+      <div class="stage-nav">
+        <a class="btn" href="./">← トップへ</a>
+        <button class="btn btn-primary" id="btn-next" disabled>次へ →</button>
+      </div>
+
+      <div id="book-recommend"></div>
+    </main>
+  </div>
+</div>
+
+<script>QUEST.initStagePage(1);</script>
+
+<script src="https://my.habatakijuku.com/sync.js" defer></script>
+</body>
+</html>

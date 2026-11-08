@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#241a40">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-9RTQCP2HXM"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-9RTQCP2HXM');
+</script>
+<title>STAGE8 メモリの配置 ― メモリのしくみクエスト</title>
+<meta name="description" content="プログラムが動くとき、メモリはコード・読み取り専用データ・初期化済みデータ・未初期化データ・ヒープ・スタックの区画に分けて使われる。それぞれの区画に何が置かれ、いつ大きさが決まり、なぜ分けるのかを整理し、7つのものを正しい区画に振り分ける。">
+<link rel="canonical" href="https://informatics.habatakijuku.com/memory-quest/stage8">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="メモリのしくみクエスト">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:title" content="STAGE8 メモリの配置 ― メモリのしくみクエスト">
+<meta property="og:description" content="メモリの地図。コード・データ・ヒープ・スタックの区画と、それぞれに置かれるもの。">
+<meta property="og:url" content="https://informatics.habatakijuku.com/memory-quest/stage8">
+<meta property="og:image" content="https://informatics.habatakijuku.com/images/ogp/memory-quest.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧠</text></svg>">
+<link rel="stylesheet" href="design-system.css?v=20261108b">
+<link rel="stylesheet" href="lab.css?v=20261108b">
+<script src="js/stages.js?v=20261108b"></script>
+<script src="js/progress.js?v=20261108b"></script>
+<script src="js/labs.js?v=20261108b"></script>
+</head>
+<body>
+<div class="app-shell side-collapsed" id="app-shell">
+  <header class="game-header">
+    <div class="brand">
+      <div class="brand-title"><a class="head-reset home-badge" href="./" title="トップへ" aria-label="トップへ">🧠</a> <span>メモリのしくみクエスト</span></div>
+      <div class="brand-sub">STAGE 8 ― メモリの配置 ―</div>
+    </div>
+    <div class="head-progress-wrap">
+      <div class="head-progress-label" id="progress-label">クリア 0 / 10</div>
+      <div class="head-progress" role="progressbar" aria-label="クリア済みステージ数" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"><div class="head-progress-fill" id="progress-fill" style="width:0%"></div></div>
+    </div>
+    <div class="header-actions">
+      <a class="head-reset" href="/" title="情報の冒険（シリーズの地図）へ">🧭 地図</a>
+      <button class="head-reset" id="btn-reset-all">🔄 最初から</button>
+      <button class="head-reset" id="head-nav-toggle" title="ステージ一覧の表示切替">☰ ナビ</button>
+    </div>
+  </header>
+
+  <div class="game-layout">
+    <div class="side-backdrop" id="side-backdrop"></div>
+    <aside class="side-panel">
+      <div class="side-head">
+        <button class="side-toggle" id="sidebar-toggle" title="ステージ一覧の表示切替" aria-label="ステージ一覧の表示切替">☰</button>
+        <span class="side-head-text">📚 ステージ一覧</span>
+      </div>
+      <div class="side-list" id="side-list"></div>
+    </aside>
+
+    <main class="main-area">
+      <div class="chapter-head">
+        <span class="chapter-badge">STAGE 8</span><h1 class="chapter-title">メモリの配置</h1>
+        <div class="chapter-sub">コード・データ・ヒープ・スタック</div>
+      </div>
+
+      <div class="mission-box">
+        <div class="mission-label">🎯 ミッション</div>
+        <div class="mission-text">プログラムのメモリの区画と、そこに置かれるものを説明できるようになろう。7つのものを正しい区画に振り分け、確認クイズに全問正解すれば合格。</div>
+        <span class="mission-status" id="mission-status">未達成</span>
+      </div>
+
+      <div class="dialogue-scene">
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">ここまでで、スタックとヒープを見てきた。でも、プログラムがメモリの中で使う場所は、それだけではない。今日はプログラム全体の<strong>メモリの地図</strong>を描こう。まず、プログラムの命令そのものは、どこにあると思う？</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">『論理回路CPUクエスト』で、命令もメモリに入っていて、PC が指す番地から取り出していました。だから、命令もメモリのどこかの区画にあるはずです。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そう。命令が置かれる区画を<strong>コード</strong>（テキストとも呼ぶ）と言う。プログラムを起動すると、ストレージにあるプログラムのファイルから、命令がこの区画に読み込まれる。次に、関数の外で宣言した変数、たとえば <code>int count = 10;</code> はどうだろう。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">関数の外の変数は、関数が終わっても消えてほしくない。でもスタックは関数ごとに片付くし、ヒープは malloc で借りるものだから……どちらでもないですね。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そう。関数の外の変数は、プログラムが動いているあいだずっと同じ場所にある。大きさも翻訳のときに決まっている。だから、コードのすぐ近くに専用の区画を取る。最初の値が決まっているものは<strong>初期化済みデータ</strong>の区画、値を書いていないもの（<code>int total;</code>）は<strong>未初期化データ</strong>の区画（BSS と呼ぶ）に置く。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">わざわざ分ける理由は？</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">未初期化データは「起動したら全部 0 にする」と決まっているので、プログラムのファイルには「何バイト分あるか」だけ書いておけばいい。100万個の 0 をファイルにしまう必要がない。初期化済みデータは、値をファイルに書いておく必要がある。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">プログラムに書いた "hello" みたいな文字列はどうなるんですか？</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">文字列そのものは、プログラムの中に書かれた決まった文字で、書き換えることは想定していない。だから<strong>読み取り専用データ</strong>の区画に置く。ここは書き込もうとすると CPU と OS が止めるようになっている。コードの区画も同じく読み取り専用だ。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">書き換えられないように守っているんですね。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そう。命令が書き換えられたら、プログラムが乗っ取られてしまう。それを防ぐために、区画ごとに「読める」「書ける」「命令として実行できる」の許可を分けている（そのしくみは STAGE10 で見る）。全体をまとめるとこうなる。</div>
+        </div>
+      </div>
+      <div class="formula-box">
+        <span class="step">コード：機械語の命令。読み取り・実行のみ。起動時にファイルから読み込む</span>
+        <span class="step">読み取り専用データ：文字列など書き換えない決まった値</span>
+        <span class="step">初期化済みデータ：関数の外の変数で、最初の値を書いたもの</span>
+        <span class="step">未初期化データ（BSS）：関数の外の変数で、値を書いていないもの。起動時に 0</span>
+        <span class="step">ヒープ：malloc で借りる場所。借りるたびに広がる</span>
+        <span class="step">スタック：関数のローカル変数と戻り先。呼ぶたびに伸びる</span>
+      </div>
+      <div class="dialogue-scene">
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">ヒープとスタックは、どちらも実行中に大きさが変わりますよね。ぶつかったりしないんですか？</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">多くの環境では、ヒープは小さい番地から大きい番地へ、スタックは大きい番地から小さい番地へと、<strong>向かい合って</strong>伸びるように配置する。間に広い空きを取っておけば、どちらがどれだけ伸びるか前もって分からなくても、空きを無駄なく使える。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">1本のメモリの両端から、それぞれ伸ばしていくんですね。</div>
+        </div>
+      </div>
+      <div class="lab" data-lab="layout" data-id="mem-s8-layout"></div>
+      <div class="dialogue-scene">
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">区画の分け方は、「いつ大きさが決まるか」と「いつまで残るか」で整理するといい。</div>
+        </div>
+      </div>
+      <div class="formula-box">
+        <span class="step">翻訳時に決まり、ずっと残る：コード・読み取り専用データ・初期化済みデータ・未初期化データ</span>
+        <span class="step">実行中に決まり、返すまで残る：ヒープ</span>
+        <span class="step">実行中に決まり、関数が終わると消える：スタック</span>
+      </div>
+      <div class="dialogue-scene">
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">変数を書いた場所（関数の中か外か）と、malloc を使うかどうかで、置かれる区画が決まるんですね。最初の「名前で書いた変数が、メモリのどこに、いつ置かれるのか」という問題の答えが、これで揃いました。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そう。残っているのは、「それを間違えると何が起きるのか」だ。次のステージで見よう。</div>
+        </div>
+      </div>
+
+      <h2 class="quiz-head">確認クイズ</h2>
+      <div class="quiz-card" data-quiz>
+        <p class="quiz-q">Q1. 関数の外で <code>int total;</code>（値を書いていない）と宣言した変数が置かれる区画は？</p>
+        <div class="choice-list">
+          <button class="choice-btn">スタック</button>
+          <button class="choice-btn">読み取り専用データ</button>
+          <button class="choice-btn">未初期化データ（BSS）</button>
+        </div>
+        <div class="quiz-explain" hidden>正解！ 関数の外の変数はずっと残るのでデータの区画。値を書いていないものは BSS に置かれ、起動時に 0 になる。</div>
+      </div>
+      <div class="quiz-card" data-quiz>
+        <p class="quiz-q">Q2. 文字列 "hello" を読み取り専用の区画に置く理由は？</p>
+        <div class="choice-list">
+          <button class="choice-btn">文字列は大きいので、スタックに入りきらないため</button>
+          <button class="choice-btn">書き換えることを想定していない決まった値なので、書き込みを禁止して間違いや乗っ取りを防ぐため</button>
+          <button class="choice-btn">読み取り専用の区画のほうが、キャッシュに必ず当たるため</button>
+        </div>
+        <div class="quiz-explain" hidden>正解！ 書き換えないものは書き込み禁止にしておけば、間違って壊すことも、悪用されることも防げる。</div>
+      </div>
+      <div class="quiz-card" data-quiz>
+        <p class="quiz-q">Q3. ヒープとスタックを、メモリの両端から向かい合うように伸ばす理由は？</p>
+        <div class="choice-list">
+          <button class="choice-btn">どちらがどれだけ伸びるか前もって分からなくても、間の空きを無駄なく使えるため</button>
+          <button class="choice-btn">両方の中身を混ぜ合わせて使うため</button>
+          <button class="choice-btn">スタックをヒープより速くするため</button>
+        </div>
+        <div class="quiz-explain" hidden>正解！ 片方が多く使い、もう片方が少ししか使わなくても、間の空きを共有できる。</div>
+      </div>
+
+      <div class="stage-nav">
+        <a class="btn" href="stage7.html">← 前のステージ</a>
+        <button class="btn btn-primary" id="btn-next" disabled>次へ →</button>
+      </div>
+
+      <div id="book-recommend"></div>
+    </main>
+  </div>
+</div>
+
+<script>QUEST.initStagePage(8);</script>
+
+<script src="https://my.habatakijuku.com/sync.js" defer></script>
+</body>
+</html>

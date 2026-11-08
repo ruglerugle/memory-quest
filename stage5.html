@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#241a40">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-9RTQCP2HXM"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-9RTQCP2HXM');
+</script>
+<title>STAGE5 ヒープ ― メモリのしくみクエスト</title>
+<meta name="description" content="大きさが実行するまで分からないデータや、関数が終わっても残したいデータは、ヒープから「借りて」「返す」。malloc と free の考え方と、空きの合計は足りるのに借りられない「断片化」を、マス目を借りたり返したりして確かめる。">
+<link rel="canonical" href="https://informatics.habatakijuku.com/memory-quest/stage5">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="メモリのしくみクエスト">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:title" content="STAGE5 ヒープ ― メモリのしくみクエスト">
+<meta property="og:description" content="必要なときに借りて返す。ヒープと断片化。">
+<meta property="og:url" content="https://informatics.habatakijuku.com/memory-quest/stage5">
+<meta property="og:image" content="https://informatics.habatakijuku.com/images/ogp/memory-quest.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧠</text></svg>">
+<link rel="stylesheet" href="design-system.css?v=20261108b">
+<link rel="stylesheet" href="lab.css?v=20261108b">
+<script src="js/stages.js?v=20261108b"></script>
+<script src="js/progress.js?v=20261108b"></script>
+<script src="js/labs.js?v=20261108b"></script>
+</head>
+<body>
+<div class="app-shell side-collapsed" id="app-shell">
+  <header class="game-header">
+    <div class="brand">
+      <div class="brand-title"><a class="head-reset home-badge" href="./" title="トップへ" aria-label="トップへ">🧠</a> <span>メモリのしくみクエスト</span></div>
+      <div class="brand-sub">STAGE 5 ― ヒープ ―</div>
+    </div>
+    <div class="head-progress-wrap">
+      <div class="head-progress-label" id="progress-label">クリア 0 / 10</div>
+      <div class="head-progress" role="progressbar" aria-label="クリア済みステージ数" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"><div class="head-progress-fill" id="progress-fill" style="width:0%"></div></div>
+    </div>
+    <div class="header-actions">
+      <a class="head-reset" href="/" title="情報の冒険（シリーズの地図）へ">🧭 地図</a>
+      <button class="head-reset" id="btn-reset-all">🔄 最初から</button>
+      <button class="head-reset" id="head-nav-toggle" title="ステージ一覧の表示切替">☰ ナビ</button>
+    </div>
+  </header>
+
+  <div class="game-layout">
+    <div class="side-backdrop" id="side-backdrop"></div>
+    <aside class="side-panel">
+      <div class="side-head">
+        <button class="side-toggle" id="sidebar-toggle" title="ステージ一覧の表示切替" aria-label="ステージ一覧の表示切替">☰</button>
+        <span class="side-head-text">📚 ステージ一覧</span>
+      </div>
+      <div class="side-list" id="side-list"></div>
+    </aside>
+
+    <main class="main-area">
+      <div class="chapter-head">
+        <span class="chapter-badge">STAGE 5</span><h1 class="chapter-title">ヒープ</h1>
+        <div class="chapter-sub">必要なときに借りて返す</div>
+      </div>
+
+      <div class="mission-box">
+        <div class="mission-label">🎯 ミッション</div>
+        <div class="mission-text">スタックとヒープの使い分けと、断片化が起きる理由を説明できるようになろう。ヒープで「空きは足りるのに借りられない」状態を作り、確認クイズに全問正解すれば合格。</div>
+        <span class="mission-status" id="mission-status">未達成</span>
+      </div>
+
+      <div class="dialogue-scene">
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">前のステージの最後で、スタックに置けないものが2種類あると言ったね。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">実行してみるまで大きさが分からないものと、関数が終わったあとも残しておきたいもの、でした。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">たとえば、ユーザーが入力した文章をしまうとき。何文字入力されるかは、プログラムを書くときには分からない。あるいは、ゲームで敵キャラクターが出てくるたびに、その敵の情報を作り、倒されるまで残しておきたい。敵を作る関数が終わったとたんに消えてしまっては困る。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbitThink.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble"> スタックの板は、関数を呼ぶときに大きさが決まっていて、関数が終わると消える。どちらにも合いません。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そこで、メモリの中に、<strong>好きなときに好きな大きさを借りて、要らなくなったら返す</strong>ための広い場所を用意しておく。これを<strong>ヒープ</strong>と呼ぶ（heap は「山積み」という意味）。C言語では、借りるときに <code>malloc</code>（memory allocation の略）、返すときに <code>free</code> を使う。</div>
+        </div>
+      </div>
+      <div class="formula-box">
+        <span class="step"><code>p = malloc(100);</code>　100バイトを借りる。借りた場所の先頭の番地が返ってくる</span>
+        <span class="step"><code>free(p);</code>　借りていた場所を返す。返した場所は、次に誰かが借りるときに使われる</span>
+      </div>
+      <div class="dialogue-scene">
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">借りたら、番地が返ってくるんですね。名前ではなく番地。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そう。ヒープの場所には変数の名前が付いていない。だから、借りたときにもらった番地を、どこかに覚えておかないといけない。その「番地を覚えておく変数」がポインタで、次のステージで詳しく見るよ。今日はヒープそのものの性質を調べよう。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">ヒープの管理係（メモリアロケータと呼ぶ）は、どこが使用中でどこが空いているかの名簿を持っていて、「100バイト」と頼まれたら、<strong>100バイト続いた空き</strong>を探して貸す。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">続いていないとだめなんですか？ 50バイトずつ2か所でもいいような。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">借りた側は「先頭の番地から100バイト」を、番地を1つずつ増やしながら使う。途中で別の場所に飛ぶことはできないんだ。だから、必ず<strong>ひと続き</strong>で貸さないといけない。それが、ある困った現象を生む。16マスのヒープで考えよう。A・B・C・D の4人に、前から4マスずつ貸した。そのあと B と D が返した。空きは何マスで、6マスのかたまりは借りられるかな。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbitThink.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble"> 空きは B の跡の4マスと D の跡の4マスで、合計8マス。でも B の跡と D の跡のあいだには C がいるので、続いている空きは最大4マス。6マスは借りられません。合計では足りているのに。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">空きが細切れになって、大きなかたまりが借りられなくなる。これを<strong>断片化</strong>（フラグメンテーション）と呼ぶ。</div>
+        </div>
+      </div>
+      <div class="lab" data-lab="heap" data-id="mem-s5-heap"></div>
+      <div class="dialogue-scene">
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">ヒープの管理係は、断片化を減らすために、同じくらいの大きさのものを近くに集めたり、返された空きが隣り合ったらつなげて大きな空きにしたり、いろいろな工夫をしている。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">使っているブロックを寄せて、空きを1か所にまとめればいいのに。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">寄せられない理由があるんだ。借りた側は、ブロックの番地をポインタに覚えている。管理係が勝手にブロックを動かすと、その番地が指す先が、別のものになってしまう。C言語では、だれがその番地を覚えているかを管理係は知らないので、動かせないんだ。（STAGE7 で見る、自動で片付けをする言語の中には、番地を書き換えながら寄せられるものもある。）</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">スタックとヒープ、どちらも使えるときは、どちらがいいんですか？</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">使えるならスタックのほうが速い。スタックは一番上の番地を動かすだけで積み下ろしできるけれど、ヒープは空きを探したり名簿を書き換えたりする手間がかかる。それに、スタックは関数が終われば自動で片付くけれど、ヒープは<strong>返すのはプログラムの責任</strong>だ。</div>
+        </div>
+      </div>
+      <div class="formula-box">
+        <span class="step">スタック：大きさは翻訳時に決まる・関数が終わると自動で消える・速い</span>
+        <span class="step">ヒープ：大きさは実行時に決められる・返すまで残る・空きを探す手間がある・返すのはプログラムの責任</span>
+      </div>
+      <div class="dialogue-scene">
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">返すのを忘れたら、どうなるんですか？</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">それが STAGE7 の話だ。その前に、借りた場所をたどるための道具、ポインタを見よう。</div>
+        </div>
+      </div>
+
+      <h2 class="quiz-head">確認クイズ</h2>
+      <div class="quiz-card" data-quiz>
+        <p class="quiz-q">Q1. スタックではなくヒープに置くべきものは？</p>
+        <div class="choice-list">
+          <button class="choice-btn">関数の中で計算の途中に使う、大きさの決まった整数</button>
+          <button class="choice-btn">関数の戻り先</button>
+          <button class="choice-btn">入力されるまで長さの分からない文章や、関数が終わっても残したいデータ</button>
+        </div>
+        <div class="quiz-explain" hidden>正解！ 大きさが実行時に決まるもの・関数より長生きさせたいものはヒープ。大きさが決まっていて関数の中だけで使うものはスタック。</div>
+      </div>
+      <div class="quiz-card" data-quiz>
+        <p class="quiz-q">Q2. 断片化とはどんな状態？</p>
+        <div class="choice-list">
+          <button class="choice-btn">ヒープが全部使用中になって、1バイトも借りられない状態</button>
+          <button class="choice-btn">空きの合計は足りているのに、ひと続きの空きが小さく分かれていて、大きなかたまりを借りられない状態</button>
+          <button class="choice-btn">返したはずの場所を、別の人がまだ使っている状態</button>
+        </div>
+        <div class="quiz-explain" hidden>正解！ 借りる側はひと続きの番地を使うので、細切れの空きをいくら足しても大きなかたまりにはならない。</div>
+      </div>
+      <div class="quiz-card" data-quiz>
+        <p class="quiz-q">Q3. C言語のヒープの管理係が、使用中のブロックを寄せて空きをまとめられない理由は？</p>
+        <div class="choice-list">
+          <button class="choice-btn">プログラムがブロックの番地をポインタに覚えていて、動かすと指す先が変わってしまうから</button>
+          <button class="choice-btn">ブロックを動かすには、電源を一度切る必要があるから</button>
+          <button class="choice-btn">ヒープのブロックは読み取り専用だから</button>
+        </div>
+        <div class="quiz-explain" hidden>正解！ だれがどの番地を覚えているかを管理係は知らない。勝手に動かすと、ポインタが別のものを指してしまう。</div>
+      </div>
+
+      <div class="stage-nav">
+        <a class="btn" href="stage4.html">← 前のステージ</a>
+        <button class="btn btn-primary" id="btn-next" disabled>次へ →</button>
+      </div>
+
+      <div id="book-recommend"></div>
+    </main>
+  </div>
+</div>
+
+<script>QUEST.initStagePage(5);</script>
+
+<script src="https://my.habatakijuku.com/sync.js" defer></script>
+</body>
+</html>

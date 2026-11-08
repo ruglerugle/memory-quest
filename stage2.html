@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#241a40">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-9RTQCP2HXM"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-9RTQCP2HXM');
+</script>
+<title>STAGE2 CPUとレジスタ ― メモリのしくみクエスト</title>
+<meta name="description" content="CPU はメモリの中身を直接は計算できない。いったんレジスタという CPU 内の小さな箱に運んでから計算し、結果をメモリへ戻す。LOAD・ADD・STORE の往復と、メモリが CPU に比べてどれほど遅いかを、かかる時間を数えながら確かめる。">
+<link rel="canonical" href="https://informatics.habatakijuku.com/memory-quest/stage2">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="メモリのしくみクエスト">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:title" content="STAGE2 CPUとレジスタ ― メモリのしくみクエスト">
+<meta property="og:description" content="計算の前に、まず運ぶ。CPU とメモリの往復にかかる時間を数える。">
+<meta property="og:url" content="https://informatics.habatakijuku.com/memory-quest/stage2">
+<meta property="og:image" content="https://informatics.habatakijuku.com/images/ogp/memory-quest.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧠</text></svg>">
+<link rel="stylesheet" href="design-system.css?v=20261108b">
+<link rel="stylesheet" href="lab.css?v=20261108b">
+<script src="js/stages.js?v=20261108b"></script>
+<script src="js/progress.js?v=20261108b"></script>
+<script src="js/labs.js?v=20261108b"></script>
+</head>
+<body>
+<div class="app-shell side-collapsed" id="app-shell">
+  <header class="game-header">
+    <div class="brand">
+      <div class="brand-title"><a class="head-reset home-badge" href="./" title="トップへ" aria-label="トップへ">🧠</a> <span>メモリのしくみクエスト</span></div>
+      <div class="brand-sub">STAGE 2 ― CPUとレジスタ ―</div>
+    </div>
+    <div class="head-progress-wrap">
+      <div class="head-progress-label" id="progress-label">クリア 0 / 10</div>
+      <div class="head-progress" role="progressbar" aria-label="クリア済みステージ数" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"><div class="head-progress-fill" id="progress-fill" style="width:0%"></div></div>
+    </div>
+    <div class="header-actions">
+      <a class="head-reset" href="/" title="情報の冒険（シリーズの地図）へ">🧭 地図</a>
+      <button class="head-reset" id="btn-reset-all">🔄 最初から</button>
+      <button class="head-reset" id="head-nav-toggle" title="ステージ一覧の表示切替">☰ ナビ</button>
+    </div>
+  </header>
+
+  <div class="game-layout">
+    <div class="side-backdrop" id="side-backdrop"></div>
+    <aside class="side-panel">
+      <div class="side-head">
+        <button class="side-toggle" id="sidebar-toggle" title="ステージ一覧の表示切替" aria-label="ステージ一覧の表示切替">☰</button>
+        <span class="side-head-text">📚 ステージ一覧</span>
+      </div>
+      <div class="side-list" id="side-list"></div>
+    </aside>
+
+    <main class="main-area">
+      <div class="chapter-head">
+        <span class="chapter-badge">STAGE 2</span><h1 class="chapter-title">CPUとレジスタ</h1>
+        <div class="chapter-sub">計算の前に、まず運ぶ</div>
+      </div>
+
+      <div class="mission-box">
+        <div class="mission-label">🎯 ミッション</div>
+        <div class="mission-text">CPU がメモリのデータを計算するまでの流れ（LOAD → 計算 → STORE）と、メモリが遅いことの意味を説明できるようになろう。3＋4 のプログラムを最後まで動かし、確認クイズに全問正解すれば合格。</div>
+        <span class="mission-status" id="mission-status">未達成</span>
+      </div>
+
+      <div class="dialogue-scene">
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">前のステージで、メモリは番地付きの箱の列だと分かった。今日は、CPU がその箱の中身でどうやって計算するかを見よう。CPU は、メモリの中の数を、その場で足し算できると思う？</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">あ、思い出しました。『<a href="https://informatics.habatakijuku.com/cpu-logic-game/" target="_blank" rel="noopener" style="color:#8a5a2a;text-decoration:underline">論理回路CPUクエスト</a>』の最後で、小さな CPU を動かしました。足し算をする ALU の入口は、CPU の中の<strong>レジスタ</strong>という箱につながっていて、メモリの数はまず LOAD でレジスタに読み込んでいました。計算したら STORE でメモリに書き戻す。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そう。CPU の計算回路（ALU）につながっているのは、CPU の中にある数十個のレジスタだけなんだ。メモリの中身を計算したければ、必ず「運んで、計算して、戻す」。番地 6 の数と番地 7 の数を足して番地 5 にしまうなら、命令はこうなる。</div>
+        </div>
+      </div>
+      <div class="formula-box">
+        <span class="step">LOAD 6　：番地6 の値をレジスタ A に読み込む</span>
+        <span class="step">ADD 7　：番地7 の値を読み、A に足す（ALU が足し算）</span>
+        <span class="step">STORE 5：A の値を番地5 に書き込む</span>
+      </div>
+      <div class="dialogue-scene">
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">そもそも、どうしてメモリの中で直接計算しないんですか？ 運ぶ手間がもったいない気がします。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">メモリは CPU とは<strong>別の部品</strong>だからなんだ。パソコンを開けると、CPU とメモリは別々の板に載っていて、細い配線でつながっている。80億個の箱の1つ1つに計算回路を付けるわけにはいかないから、計算は CPU にまとめて、データを運ぶ。そして、この「運ぶ」が、とても遅い。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">どのくらいですか？</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">CPU の合図（クロック）の1拍は、3GHz なら約0.3ナノ秒（ナノ秒は10億分の1秒）。それに対して、メモリに番地を伝えて中身が返ってくるまでには、およそ<strong>100ナノ秒</strong>かかる。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbitThink.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble"> 100 ÷ 0.3 で……約300拍。足し算は1拍でできるのに、数を1つ取ってくるのに300拍待つんですか。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そういうこと。しかも命令そのものもメモリに入っているから、命令を取り出すたびにも待ち時間がかかる。</div>
+        </div>
+      </div>
+      <p class="lab-note">※ 模型では分かりやすく、メモリの読み書き1回を100拍、足し算を1拍として数える。</p>
+      <div class="lab" data-lab="cpu" data-id="mem-s2-cpu"></div>
+      <div class="dialogue-scene">
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">計算そのものはほんの一瞬で、時間のほとんどは「待つ」ことに使われている……。CPU がいくら速くなっても、メモリが遅いと意味がないですね。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">その問題は「メモリの壁」と呼ばれていて、コンピュータの設計者がずっと悩んできたことなんだ。だから、記憶の置き場所は、速さと大きさの違う何段階かに分けて使う。</div>
+        </div>
+      </div>
+      <div class="formula-box">
+        <span class="step">レジスタ：約0.3ナノ秒、数百バイト（CPU の中）</span>
+        <span class="step">キャッシュ：約1〜10ナノ秒、数十KB〜数十MB（CPU の中。次のステージ）</span>
+        <span class="step">メモリ（RAM）：約100ナノ秒、数GB〜数十GB</span>
+        <span class="step">ストレージ（SSD）：約10万ナノ秒（0.1ミリ秒）、数百GB〜数TB。電源を切っても消えない</span>
+      </div>
+      <div class="dialogue-scene">
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">机の上と、引き出しと、部屋の本棚と、図書館みたいですね。机の上はすぐ手が届くけど狭い。図書館はなんでもあるけど、行って帰るのに時間がかかる。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">いいたとえだね。よく使うものほど手元に置く、という考え方が、次のステージのキャッシュにつながる。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">ところで、プログラムで <code>score = score + 10</code> と書いたら、どの番地を LOAD するかは誰が決めるんですか？ 書いた人は番地を書いていません。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">プログラムを CPU の命令に翻訳する<strong>コンパイラ</strong>というプログラムが決めている。変数 score を「番地 0x1000 の4バイト」のように割り当てて、score を使う場所を、その番地への LOAD や STORE に書き換えるんだ。よく使う変数は、メモリに置かずにレジスタに置いたままにして、往復を減らすこともある。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">名前は人間のためのもので、CPU から見ると番地だけなんですね。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そう。では、その番地を、コンパイラはどういう規則で決めているのか。それがこの旅の残りの大部分になる。その前に、往復の遅さを和らげる工夫、キャッシュを見ておこう。</div>
+        </div>
+      </div>
+
+      <h2 class="quiz-head">確認クイズ</h2>
+      <div class="quiz-card" data-quiz>
+        <p class="quiz-q">Q1. CPU がメモリにある2つの数を足すとき、正しい流れは？</p>
+        <div class="choice-list">
+          <button class="choice-btn">メモリの箱どうしを直接つないで、メモリの中で足し算する</button>
+          <button class="choice-btn">2つの数をストレージに保存してから足し算する</button>
+          <button class="choice-btn">1つ目をレジスタに読み込み（LOAD）、2つ目を読みながら足し（ADD）、結果をメモリに書き戻す（STORE）</button>
+        </div>
+        <div class="quiz-explain" hidden>正解！ ALU につながっているのはレジスタだけ。メモリの数は運んでから計算し、結果を戻す。</div>
+      </div>
+      <div class="quiz-card" data-quiz>
+        <p class="quiz-q">Q2. 3GHz の CPU にとって、メモリから1つ読む約100ナノ秒は、およそ何拍分？</p>
+        <div class="choice-list">
+          <button class="choice-btn">約3拍</button>
+          <button class="choice-btn">約300拍</button>
+          <button class="choice-btn">約30拍</button>
+        </div>
+        <div class="quiz-explain" hidden>正解！ 1拍は約0.3ナノ秒。100 ÷ 0.3 ≒ 300。足し算1回は1拍なので、待ち時間のほうがずっと長い。</div>
+      </div>
+      <div class="quiz-card" data-quiz>
+        <p class="quiz-q">Q3. 変数 score がメモリのどの番地に置かれるかを決めているのは？</p>
+        <div class="choice-list">
+          <button class="choice-btn">プログラムを CPU の命令に翻訳するコンパイラ（と、動かすときの OS）が割り当てる</button>
+          <button class="choice-btn">プログラムを書いた人が、変数の名前に番地を書いている</button>
+          <button class="choice-btn">CPU が、名前の文字コードから番地を計算する</button>
+        </div>
+        <div class="quiz-explain" hidden>正解！ 名前は人間のためのもの。コンパイラが番地やレジスタを割り当て、変数を使う場所を LOAD・STORE に書き換える。</div>
+      </div>
+
+      <div class="stage-nav">
+        <a class="btn" href="stage1.html">← 前のステージ</a>
+        <button class="btn btn-primary" id="btn-next" disabled>次へ →</button>
+      </div>
+
+      <div id="book-recommend"></div>
+    </main>
+  </div>
+</div>
+
+<script>QUEST.initStagePage(2);</script>
+
+<script src="https://my.habatakijuku.com/sync.js" defer></script>
+</body>
+</html>

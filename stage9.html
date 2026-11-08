@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#241a40">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-9RTQCP2HXM"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-9RTQCP2HXM');
+</script>
+<title>STAGE9 メモリのバグ ― メモリのしくみクエスト</title>
+<meta name="description" content="メモリの使い方を間違えると何が起きるのか。返した場所を使い続ける「解放後の使用」、2回返す「二重解放」、箱の大きさを超えて書く「バッファあふれ」の3つを、メモリの中身を追いながら確かめ、それが乗っ取りの入口になる理由と、防ぐ工夫を知る。">
+<link rel="canonical" href="https://informatics.habatakijuku.com/memory-quest/stage9">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="メモリのしくみクエスト">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:title" content="STAGE9 メモリのバグ ― メモリのしくみクエスト">
+<meta property="og:description" content="返した後に使う・2回返す・あふれる。メモリの3大バグと、それがセキュリティの穴になる理由。">
+<meta property="og:url" content="https://informatics.habatakijuku.com/memory-quest/stage9">
+<meta property="og:image" content="https://informatics.habatakijuku.com/images/ogp/memory-quest.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧠</text></svg>">
+<link rel="stylesheet" href="design-system.css?v=20261108b">
+<link rel="stylesheet" href="lab.css?v=20261108b">
+<script src="js/stages.js?v=20261108b"></script>
+<script src="js/progress.js?v=20261108b"></script>
+<script src="js/labs.js?v=20261108b"></script>
+</head>
+<body>
+<div class="app-shell side-collapsed" id="app-shell">
+  <header class="game-header">
+    <div class="brand">
+      <div class="brand-title"><a class="head-reset home-badge" href="./" title="トップへ" aria-label="トップへ">🧠</a> <span>メモリのしくみクエスト</span></div>
+      <div class="brand-sub">STAGE 9 ― メモリのバグ ―</div>
+    </div>
+    <div class="head-progress-wrap">
+      <div class="head-progress-label" id="progress-label">クリア 0 / 10</div>
+      <div class="head-progress" role="progressbar" aria-label="クリア済みステージ数" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"><div class="head-progress-fill" id="progress-fill" style="width:0%"></div></div>
+    </div>
+    <div class="header-actions">
+      <a class="head-reset" href="/" title="情報の冒険（シリーズの地図）へ">🧭 地図</a>
+      <button class="head-reset" id="btn-reset-all">🔄 最初から</button>
+      <button class="head-reset" id="head-nav-toggle" title="ステージ一覧の表示切替">☰ ナビ</button>
+    </div>
+  </header>
+
+  <div class="game-layout">
+    <div class="side-backdrop" id="side-backdrop"></div>
+    <aside class="side-panel">
+      <div class="side-head">
+        <button class="side-toggle" id="sidebar-toggle" title="ステージ一覧の表示切替" aria-label="ステージ一覧の表示切替">☰</button>
+        <span class="side-head-text">📚 ステージ一覧</span>
+      </div>
+      <div class="side-list" id="side-list"></div>
+    </aside>
+
+    <main class="main-area">
+      <div class="chapter-head">
+        <span class="chapter-badge">STAGE 9</span><h1 class="chapter-title">メモリのバグ</h1>
+        <div class="chapter-sub">解放後の使用・あふれ・二重解放</div>
+      </div>
+
+      <div class="mission-box">
+        <div class="mission-label">🎯 ミッション</div>
+        <div class="mission-text">メモリの典型的な3つのバグが、なぜ起きて、なぜ危険なのかを説明できるようになろう。3つのバグを最後まで1行ずつ追い、確認クイズに全問正解すれば合格。</div>
+        <span class="mission-status" id="mission-status">未達成</span>
+      </div>
+
+      <div class="dialogue-scene">
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">ここまでで、メモリのどこに何が置かれるかが分かった。最後の問いは「それを間違えると何が起きるのか」だ。C言語では、ポインタが正しい場所を指しているかどうかを、だれも確かめてくれない。間違えたときに起きることを3つ見よう。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">1つ目は<strong>解放後の使用</strong>（use after free）。ヒープから借りて、free で返したあとも、ポインタには番地が残っている。この、もう返した場所を指したままのポインタを<strong>宙ぶらりんのポインタ</strong>（ダングリングポインタ）と呼ぶ。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbitThink.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble"> 返した場所は、次に誰かが借りるときに貸し出される（STAGE5）。そうすると、古いポインタと新しいポインタが同じ場所を指すことになって、片方が書いた値をもう片方が読んでしまう。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そう。しかもやっかいなのは、すぐには壊れないことだ。返した直後は古い値がまだ残っているので、読んでも正しく見える。別の誰かが同じ場所を借りて書き換えたときに、まったく関係なさそうな所で、おかしなことが起きる。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">2つ目は<strong>二重解放</strong>（double free）。同じ場所を2回 free すること。ヒープの管理係の空きの名簿に、同じ場所が2回載ってしまう。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbitThink.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble"> 名簿に2回載っていれば、次の2回の malloc で、同じ場所が2人に貸し出されてしまう。結局、1つ目と同じ「2人が同じ場所を使う」状態になりますね。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">3つ目は<strong>バッファあふれ</strong>（バッファオーバーフロー）。バッファは「データを一時的に入れておく箱」、たとえば文字を入れる配列のことだ。4文字分の配列に、7文字を書き込んだらどうなる？</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">配列は番地が連続した箱だから……あふれた3文字は、配列のすぐ後ろの番地に書き込まれる。そこに別の変数があれば、その変数が書き換わってしまう。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">C言語は、配列の範囲を超えて書いても止めてくれない。STAGE4 を思い出してほしい。スタックの板には、ローカル変数の配列のすぐ近くに、何があった？</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbitThink.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble"> ……戻り先。もし配列があふれて戻り先が書き換えられたら、関数が終わったときに、書き換えられた番地へ「戻って」しまう。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そう。攻撃者がわざと長い入力を送り込んで、戻り先を自分の用意した番地に書き換えると、プログラムを乗っ取れてしまう。実際に、1988年に広まった最初期のインターネットワーム（モリスワーム）は、この手口を使っていた。いまでも、セキュリティの重大な穴の多くは、こうしたメモリの使い方の間違いから生まれている。</div>
+        </div>
+      </div>
+      <div class="lab" data-lab="bugs" data-id="mem-s9-bugs"></div>
+      <div class="formula-box">
+        <span class="step">解放後の使用：返した場所を古いポインタで読み書きする → 別のデータを壊す・読み取る</span>
+        <span class="step">二重解放：同じ場所を2回返す → 名簿が壊れ、同じ場所が2人に貸される</span>
+        <span class="step">バッファあふれ：箱の大きさを超えて書く → 隣の変数や戻り先を上書きする</span>
+        <span class="step">共通点：「その番地を、いま使ってよいか」をだれも確かめていない</span>
+      </div>
+      <div class="dialogue-scene">
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">防ぐ方法はないんですか？</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">いくつもの工夫が重ねられている。OS や CPU の側では、スタックやヒープの区画を「命令として実行してはいけない」に設定する（STAGE8 の許可の話）、区画の置き場所を起動のたびにでたらめに変えて番地を当てにくくする、戻り先の手前に見張りの値を置いて書き換えに気づく、などだ。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">プログラムを書く側では？</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">入力の長さを必ず確かめる、返したポインタには NULL（どこも指していないことを表す値）を入れておく、といった約束を守ること。それに、言語そのものを変える方法がある。Java や Python のように GC がある言語では、返したものを使うことが起きない。配列の範囲を超えると、実行中に止めてくれる言語も多い。Rust は、GC を使わずに、翻訳の時点で「この番地をいま使ってよいか」を確かめる。最近は、OS やブラウザの一部をこうした言語で書き直す動きが広がっている。</div>
+        </div>
+        <div class="dialog-row right">
+          <div class="dialog-character">
+            <div class="dialog-avatar student"><img src="images/rabbit.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name student">うさ美</div>
+          </div>
+          <div class="dialog-bubble">速さのために C言語で自由に番地を扱えるようにした代わりに、正しさの責任を人間が負っていたんですね。</div>
+        </div>
+        <div class="dialog-row">
+          <div class="dialog-character">
+            <div class="dialog-avatar mentor"><img src="images/cat.webp" width="300" height="386" alt=""></div>
+            <div class="dialog-name mentor">ねこ博士</div>
+          </div>
+          <div class="dialog-bubble">そういうことだ。メモリの片付けの間違いが本物のサーバーでどんな事件になるのかは、『<a href="https://memory-safety.habatakijuku.com/" target="_blank" rel="noopener" style="color:#8a5a2a;text-decoration:underline">片付けを忘れたサーバー</a>』で読める。次は最後のステージ、プログラムどうしがお互いのメモリを壊さないためのしくみだ。</div>
+        </div>
+      </div>
+
+      <h2 class="quiz-head">確認クイズ</h2>
+      <div class="quiz-card" data-quiz>
+        <p class="quiz-q">Q1. 「宙ぶらりんのポインタ」とは？</p>
+        <div class="choice-list">
+          <button class="choice-btn">まだどこも指していない、作ったばかりのポインタ</button>
+          <button class="choice-btn">free で返したあとも、返した場所の番地を持ち続けているポインタ</button>
+          <button class="choice-btn">スタックの一番上を指すポインタ</button>
+        </div>
+        <div class="quiz-explain" hidden>正解！ 返した場所は次に誰かへ貸し出されるので、古いポインタで読み書きすると別のデータを壊す。</div>
+      </div>
+      <div class="quiz-card" data-quiz>
+        <p class="quiz-q">Q2. スタック上の配列のバッファあふれが、乗っ取りにつながる理由は？</p>
+        <div class="choice-list">
+          <button class="choice-btn">あふれた書き込みが、近くにある戻り先を書き換えると、関数の終わりに攻撃者の用意した番地へ飛んでしまうから</button>
+          <button class="choice-btn">あふれた文字がストレージに保存されるから</button>
+          <button class="choice-btn">配列があふれると、OS の管理者の権限が自動的に与えられるから</button>
+        </div>
+        <div class="quiz-explain" hidden>正解！ 戻り先はスタックの板の中、ローカル変数の近くにある。そこを書き換えられると、プログラムの流れを奪われる。</div>
+      </div>
+      <div class="quiz-card" data-quiz>
+        <p class="quiz-q">Q3. 3つのバグに共通する原因は？</p>
+        <div class="choice-list">
+          <button class="choice-btn">メモリが足りなくなること</button>
+          <button class="choice-btn">CPU の計算の誤り</button>
+          <button class="choice-btn">「その番地を、いま使ってよいか」をだれも確かめていないこと</button>
+        </div>
+        <div class="quiz-explain" hidden>正解！ 返した場所・2回目に返す場所・箱の外。どれも、使ってよくない番地を使っている。GC のある言語や Rust は、この確認を仕組みで行う。</div>
+      </div>
+
+      <div class="stage-nav">
+        <a class="btn" href="stage8.html">← 前のステージ</a>
+        <button class="btn btn-primary" id="btn-next" disabled>次へ →</button>
+      </div>
+
+      <div id="book-recommend"></div>
+    </main>
+  </div>
+</div>
+
+<script>QUEST.initStagePage(9);</script>
+
+<script src="https://my.habatakijuku.com/sync.js" defer></script>
+</body>
+</html>
